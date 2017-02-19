@@ -178,11 +178,25 @@ func Is15CardsOk(cards ...*Card) bool {
 		return false
 	}
 
+	// 3 + 12
 	if Is3CardsOk(cards[0:3]...) &&
 		Is12CardsOk(cards[3:15]...){
 		return true
 	}
 
+	// 6 + 9
+	if Is6CardsOk(cards[0:6]...) &&
+		Is9CardsOk(cards[6:15]...){
+		return true
+	}
+
+	// 9 + 6
+	if Is9CardsOk(cards[0:9]...) &&
+		Is6CardsOk(cards[9:15]...){
+		return true
+	}
+
+	//12 + 3
 	if Is12CardsOk(cards[0:12]...) &&
 		Is3CardsOk(cards[12:15]...) {
 		return true

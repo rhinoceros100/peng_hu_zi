@@ -280,3 +280,33 @@ func TestCards_PopFront(t *testing.T) {
 	assert.Equal(t, card, card1)
 	assert.Equal(t, cards.Len(), 0)
 }
+
+func TestCards_ComputeChiGroup(t *testing.T) {
+	cards := NewCards(
+		&Card{CardType:CardType_Big, CardNo:1},
+
+		&Card{CardType:CardType_Big, CardNo:2},
+		&Card{CardType:CardType_Big, CardNo:2},
+		&Card{CardType:CardType_Small, CardNo:2},
+		&Card{CardType:CardType_Small, CardNo:2},
+
+		&Card{CardType:CardType_Big, CardNo:3},
+		&Card{CardType:CardType_Big, CardNo:3},
+		&Card{CardType:CardType_Small, CardNo:3},
+		&Card{CardType:CardType_Small, CardNo:3},
+
+		&Card{CardType:CardType_Big, CardNo:6},
+		&Card{CardType:CardType_Big, CardNo:7},
+		&Card{CardType:CardType_Big, CardNo:8},
+
+		&Card{CardType:CardType_Big, CardNo:4},
+		&Card{CardType:CardType_Big, CardNo:4},
+		&Card{CardType:CardType_Small, CardNo:4},
+		&Card{CardType:CardType_Big, CardNo:9},
+	)
+
+	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Big, CardNo:10},))
+	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Big, CardNo:3},))
+	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Big, CardNo:2},))
+	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Small, CardNo:9},))
+}

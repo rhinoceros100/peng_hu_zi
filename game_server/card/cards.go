@@ -17,10 +17,14 @@ type Cards struct {
 }
 
 //创建一个Cards对象
-func NewCards() *Cards{
-	return &Cards{
+func NewCards(allCard ...*Card) *Cards{
+	cards := &Cards{
 		data :	make([]*Card, 0),
 	}
+	for _, card := range allCard {
+		cards.AddAndSort(card)
+	}
+	return cards
 }
 
 //从指定的cardSlice创建一个Cards对象
@@ -276,79 +280,80 @@ func (cards *Cards) calcSameCardNum(whatCard *Card) int {
 }
 
 /*	计算指定的牌可以吃牌的组合
-*	假设要吃的牌为C，则需要检查是否存在如下组合：
-*	ABC、BCD、BCCD、BCCCD、BCCCD、CDE
-*	如果存在AB,则添加组合ABC
-*	如果存在BD/BCD/BCCD/BCCCD, 则添加组合BCD
-*	如果存在DE,则添加组合CDE
 */
 func (cards *Cards) computeChiGroup(card *Card) []*Cards {
-	return nil
-	/*
 	length := cards.Len()
 	if length < 2 {
 		return nil
 	}
 	cardsSlice := make([]*Cards, 0)
 
-	//检查AB/BD/DE组合
-	for idx := 0; idx < length-1; idx++ {
-		//if AB组合，加上card后相当于ABC
-		if IsABC(cards.At(idx), cards.At(idx+1), card) {
-			tmp := NewCards()
-			tmp.AppendCard(cards.At(idx))
-			tmp.AppendCard(cards.At(idx+1))
-			tmp.AppendCard(card)
-			cardsSlice = append(cardsSlice, tmp)
-		}
+	//假定要吃的牌为C, 检查AB/BD/DE组合
+	AB := NewCards(card.Prev().Prev(), card.Prev())
+	if AB.Len() == 2 && cards.hasCards(AB){
+		AB.AddAndSort(card)
+		cardsSlice = append(cardsSlice, AB)
+	}
 
-		//if BD组合，加上card后相当于BCD
-		if IsABC(cards.At(idx), card, cards.At(idx+1))  {
-			tmp := NewCards()
-			tmp.AppendCard(cards.At(idx))
-			tmp.AppendCard(card)
-			tmp.AppendCard(cards.At(idx+1))
-			cardsSlice = append(cardsSlice, tmp)
-		}
+	BD := NewCards(card.Prev(), card.Next())
+	if BD.Len() == 2 && cards.hasCards(BD){
+		BD.AddAndSort(card)
+		cardsSlice = append(cardsSlice, BD)
+	}
 
-		//if DE组合，加上card后相当于CDE
-		if IsABC(card, cards.At(idx), cards.At(idx+1)) {
-			tmp := NewCards()
-			tmp.AppendCard(card)
-			tmp.AppendCard(cards.At(idx))
-			tmp.AppendCard(cards.At(idx+1))
-			cardsSlice = append(cardsSlice, tmp)
-		}
+	DE := NewCards(card.Next(), card.Next().Next())
+	if DE.Len() == 2 && cards.hasCards(DE) {
+		DE.AddAndSort(card)
+		cardsSlice = append(cardsSlice, DE)
+	}
 
-		//if BCD 组合，加上card后相当于BCCD
-		if IsABBC(cards.At(idx), card, cards.At(idx+1), cards.At(idx+2)) {
-			tmp := NewCards()
-			tmp.AppendCard(cards.At(idx))
-			tmp.AppendCard(card)
-			tmp.AppendCard(cards.At(idx+2))
-			cardsSlice = append(cardsSlice, tmp)
-		}
-
-		//if BCCD 组合，加上card后相当于BCCCD
-		if IsABBBC(cards.At(idx), card, cards.At(idx+1), cards.At(idx+2), cards.At(idx+3)) {
-			tmp := NewCards()
-			tmp.AppendCard(cards.At(idx))
-			tmp.AppendCard(card)
-			tmp.AppendCard(cards.At(idx+3))
-			cardsSlice = append(cardsSlice, tmp)
-		}
-
-		//if BCCCD 组合，加上card后相当于BCCCCD
-		if IsABBBBC(cards.At(idx), card, cards.At(idx+1), cards.At(idx+2), cards.At(idx+3), cards.At(idx+4)) {
-			tmp := NewCards()
-			tmp.AppendCard(cards.At(idx))
-			tmp.AppendCard(card)
-			tmp.AppendCard(cards.At(idx+4))
-			cardsSlice = append(cardsSlice, tmp)
+	//检查2、7、10
+	if card.CardNo == 2 {
+		DE := NewCards(
+			&Card{CardType:card.CardType, CardNo:7},
+			&Card{CardType:card.CardType, CardNo:10},
+		)
+		if cards.hasCards(DE) {
+			DE.AddAndSort(card)
+			cardsSlice = append(cardsSlice, DE)
 		}
 	}
+
+	if card.CardNo == 7 {
+		BD := NewCards(
+			&Card{CardType:card.CardType, CardNo:2},
+			&Card{CardType:card.CardType, CardNo:10},
+		)
+		if cards.hasCards(BD) {
+			BD.AddAndSort(card)
+			cardsSlice = append(cardsSlice, BD)
+		}
+	}
+
+	if card.CardNo == 10 {
+		AB := NewCards(
+			&Card{CardType:card.CardType, CardNo:2},
+			&Card{CardType:card.CardType, CardNo:7},
+		)
+		if cards.hasCards(AB) {
+			AB.AddAndSort(card)
+			cardsSlice = append(cardsSlice, AB)
+		}
+	}
+
+	//检查2带1的情况，不需要考虑扫、跑、提的情况
+	Cc := NewCards(card, card.Opposite())
+	if cards.hasCards(Cc) {
+		Cc.AddAndSort(card)
+		cardsSlice = append(cardsSlice, Cc)
+	}
+
+	if cards.calcSameCardNum(card.Opposite()) >= 2 {
+		cc := NewCards(card.Opposite(), card.Opposite(), card)
+		cardsSlice = append(cardsSlice, cc)
+	}
+
 	return cardsSlice
-	*/
 }
 
 
@@ -426,4 +431,27 @@ func (cards *Cards) CalcCardCntAsSameCardType(cardType int) int {
 		}
 	}
 	return cnt
+}
+
+//检查是否存在子集subCards
+func (cards *Cards) hasCards(subCards *Cards) bool {
+	if subCards.Len() == 0 {
+		return true
+	}
+	for _, subCard := range subCards.data {
+		if !cards.hasCard(subCard) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (cards *Cards) hasCard(card *Card) bool{
+	for _, tmp := range cards.data {
+		if tmp.SameAs(card) {
+			return true
+		}
+	}
+	return false
 }

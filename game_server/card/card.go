@@ -55,6 +55,46 @@ func (card *Card) MakeKey() int64 {
 	return ret
 }
 
+func (card *Card) Next() *Card {
+	if card == nil {
+		return nil
+	}
+	if card.CardNo == 9 {
+		return nil
+	}
+	return &Card{
+		CardType: card.CardType,
+		CardNo: card.CardNo + 1,
+	}
+}
+
+func (card *Card) Prev() *Card {
+	if card == nil {
+		return nil
+	}
+	if card.CardNo == 1 {
+		return nil
+	}
+	return &Card{
+		CardType: card.CardType,
+		CardNo: card.CardNo - 1,
+	}
+}
+
+//返回于card相对的牌：点数一样，但是大小不一样
+func (card *Card) Opposite() *Card {
+	var cardType int
+	if card.CardType == CardType_Big {
+		cardType = CardType_Small
+	} else {
+		cardType = CardType_Big
+	}
+	return &Card{
+		CardType: cardType,
+		CardNo: card.CardNo,
+	}
+}
+
 func (card *Card) String() string {
 	if card == nil {
 		return "nil"
