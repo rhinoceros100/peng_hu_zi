@@ -1,39 +1,36 @@
 package card
 
 type PlayingCards struct {
-	cardsInHand			[]*Cards		//手上的牌
-	magicCards			*Cards			//手上的赖子牌
-	cardsAlreadyChi		[]*Cards		//已经吃了的牌
-	cardsAlreadyPeng	[]*Cards		//已经碰了的牌
-	cardsAlreadyGang	[]*Cards		//已经杠了的牌
-
-	cardsForCheckHu		*Cards			//用于临时检查是否胡牌
+	CardsInHand			*Cards		//手上的牌
+	ChiCards            *Cards      //已经吃的牌, 3张牌都存
+	PengCards			*Cards		//已经碰的牌，只存已碰牌的其中一张
+	SaoCards			*Cards		//已经扫的牌，只存已扫牌的其中一张
+	PaoCards			*Cards		//已经跑的牌，只存已跑牌的其中一张
+	TiLongCards         *Cards      //已经提龙的拍，只存已提龙牌的其中一张
 }
 
 func NewPlayingCards() *PlayingCards {
-	cards :=  &PlayingCards{
-		magicCards:			NewCards(),
-		cardsForCheckHu:	NewCards(),
+	return  &PlayingCards{
+		CardsInHand: NewCards(),
+		ChiCards: NewCards(),
+		PengCards: NewCards(),
+		SaoCards: NewCards(),
+		PaoCards: NewCards(),
+		TiLongCards: NewCards(),
 	}
-	cards.cardsInHand = cards.initCardsSlice()
-	cards.cardsAlreadyChi = cards.initCardsSlice()
-	cards.cardsAlreadyPeng = cards.initCardsSlice()
-	cards.cardsAlreadyGang = cards.initCardsSlice()
-	return cards
 }
 
 func (playingCards *PlayingCards) Reset() {
-	playingCards.resetCardsSlice(playingCards.cardsInHand)
-	playingCards.magicCards.Clear()
-	playingCards.resetCardsSlice(playingCards.cardsAlreadyChi)
-	playingCards.resetCardsSlice(playingCards.cardsAlreadyPeng)
-	playingCards.resetCardsSlice(playingCards.cardsAlreadyGang)
+	playingCards.CardsInHand.Clear()
+	playingCards.PengCards.Clear()
+	playingCards.SaoCards.Clear()
+	playingCards.PaoCards.Clear()
+	playingCards.TiLongCards.Clear()
 }
 
 func (playingCards *PlayingCards) AddCards(cards *Cards) {
-	for _, card := range cards.Data() {
-		playingCards.AddCard(card)
-	}
+	playingCards.CardsInHand.AppendCards(cards)
+	playingCards.CardsInHand.Sort()
 }
 
 
@@ -45,27 +42,16 @@ func (playingCards *PlayingCards) DropCards(cards *Cards) {
 
 //增加一张牌
 func (playingCards *PlayingCards) AddCard(card *Card) {
-	playingCards.cardsInHand[card.CardType].AddAndSort(card)
-}
-
-//增加一张赖子牌
-func (playingCards *PlayingCards) AddMagicCard(card *Card) {
-	playingCards.magicCards.AppendCard(card)
+	playingCards.CardsInHand.AddAndSort(card)
 }
 
 //丢弃一张牌
 func (playingCards *PlayingCards) DropCard(card *Card) bool {
-	return playingCards.cardsInHand[card.CardType].TakeWay(card)
+	return playingCards.CardsInHand.TakeWay(card)
 }
 
 func (playingCards *PlayingCards) DropTail() *Card {
-	for cardType := CardType_Small; cardType >= CardType_Big; cardType-- {
-		cards := playingCards.cardsInHand[cardType]
-		if cards.Len() > 0 {
-			return cards.PopTail()
-		}
-	}
-	return nil
+	return playingCards.CardsInHand.PopTail()
 }
 
 //吃牌，要吃whatCard，以及吃哪个组合whatGroup
@@ -78,12 +64,11 @@ func (playingCards *PlayingCards) Chi(whatCard *Card, whatGroup *Cards) bool {
 		if card.SameAs(whatCard) {
 			continue
 		}
-		playingCards.cardsInHand[card.CardType].TakeWay(card)
-		playingCards.cardsAlreadyChi[whatCard.CardType].AppendCard(card)
+		playingCards.CardsInHand.TakeWay(card)
 	}
 
-	//最后把whatCard加入cardsAlreadyChi
-	playingCards.cardsAlreadyChi[whatCard.CardType].AddAndSort(whatCard)
+	playingCards.ChiCards.AppendCards(whatGroup)
+	playingCards.ChiCards.Sort()
 
 	return true
 }
@@ -94,119 +79,61 @@ func (playingCards *PlayingCards) Peng(whatCard *Card) bool {
 		return false
 	}
 
-	playingCards.cardsInHand[whatCard.CardType].TakeWay(whatCard)
-	playingCards.cardsInHand[whatCard.CardType].TakeWay(whatCard)
-	playingCards.cardsAlreadyPeng[whatCard.CardType].AppendCard(whatCard)
-	playingCards.cardsAlreadyPeng[whatCard.CardType].AppendCard(whatCard)
-	playingCards.cardsAlreadyPeng[whatCard.CardType].AddAndSort(whatCard)
+	playingCards.CardsInHand.TakeWay(whatCard)
+	playingCards.CardsInHand.TakeWay(whatCard)
+	playingCards.PengCards.AddAndSort(whatCard)
 	return true
 }
 
-//杠牌
-func (playingCards *PlayingCards) Gang(whatCard *Card) bool {
-	if !playingCards.CanGang(whatCard) {
+//跑牌
+func (playingCards *PlayingCards) Pao(whatCard *Card) bool {
+	if !playingCards.CanPao(whatCard) {
 		return false
 	}
 
-	playingCards.cardsInHand[whatCard.CardType].TakeWay(whatCard)
-	playingCards.cardsInHand[whatCard.CardType].TakeWay(whatCard)
-	playingCards.cardsInHand[whatCard.CardType].TakeWay(whatCard)
-	playingCards.cardsInHand[whatCard.CardType].TakeWay(whatCard)//此次操作可能是false，暗杠的时候为true，杠别人的牌是false
-	playingCards.cardsAlreadyGang[whatCard.CardType].AppendCard(whatCard)
-	playingCards.cardsAlreadyGang[whatCard.CardType].AppendCard(whatCard)
-	playingCards.cardsAlreadyGang[whatCard.CardType].AppendCard(whatCard)
-	playingCards.cardsAlreadyGang[whatCard.CardType].AddAndSort(whatCard)
-	return true
-}
+	playingCards.CardsInHand.TakeWay(whatCard)
+	playingCards.CardsInHand.TakeWay(whatCard)
+	playingCards.CardsInHand.TakeWay(whatCard)
 
-func (playingCards *PlayingCards) ToString() string{
-	str := ""
-	str += "cardsInHand:\n" + playingCards.cardsSliceToString(playingCards.cardsInHand)
-	str += "cardsAlreadyChi:\n" + playingCards.cardsSliceToString(playingCards.cardsAlreadyChi)
-	str += "cardsAlreadyPeng:\n" + playingCards.cardsSliceToString(playingCards.cardsAlreadyPeng)
-	str += "cardsAlreadyGang:\n" + playingCards.cardsSliceToString(playingCards.cardsAlreadyGang)
-	return str
+	playingCards.PaoCards.AddAndSort(whatCard)
+	return true
 }
 
 /*	计算指定的牌可以吃牌的组合
 */
 func (playingCards *PlayingCards) ComputeChiGroup(card *Card) []*Cards {
-	return playingCards.cardsInHand[card.CardType].computeChiGroup(card)
+	return playingCards.CardsInHand.computeChiGroup(card)
 }
 
 //检查是否能吃
 func (playingCards *PlayingCards) CanChi(whatCard *Card, whatGroup *Cards) bool {
-	return playingCards.cardsInHand[whatCard.CardType].canChi(whatCard, whatGroup)
+	return playingCards.CardsInHand.canChi(whatCard, whatGroup)
 }
 
 //检查是否能碰
 func (playingCards *PlayingCards) CanPeng(whatCard *Card) bool  {
-	return playingCards.cardsInHand[whatCard.CardType].canPeng(whatCard)
+	return playingCards.CardsInHand.canPeng(whatCard)
 }
 
-//检查是否能杠
-func (playingCards *PlayingCards) CanGang(whatCard *Card) bool {
-	return playingCards.cardsInHand[whatCard.CardType].canGang(whatCard)
+//检查是否能扫
+func (playingCards *PlayingCards) CanSao(whatCard *Card) bool {
+	return playingCards.CardsInHand.canSao(whatCard)
 }
 
-
-//初始化cards
-func (playingCards *PlayingCards) initCardsSlice()[]*Cards {
-	cardsSlice := make([]*Cards, CardType_Big)
-	for idx := 0; idx < CardType_Big; idx++ {
-		cardsSlice[idx] = NewCards()
+//检查是否能跑
+func (playingCards *PlayingCards) CanPao(whatCard *Card) bool {
+	can := playingCards.SaoCards.hasCard(whatCard)
+	if can {
+		return can
 	}
-	return cardsSlice
+	return playingCards.PengCards.hasCard(whatCard)
 }
 
-func (playingCards *PlayingCards) resetCardsSlice(cardsSlice []*Cards) {
-	for _, cards := range cardsSlice {
-		cards.Clear()
-	}
-}
-
-func (playingCards *PlayingCards) cardsSliceToString(cardsSlice []*Cards) string{
-	str := ""
-	for _, cards := range cardsSlice{
-		str += cards.String() + "\n"
-	}
-	return str
-}
-
-func (playingCards *PlayingCards) GetCardsInHand() []*Cards{
-	return playingCards.cardsInHand
-}
-
-func (playingCards *PlayingCards) GetCardsInHandByType(cardType int) *Cards{
-	return playingCards.cardsInHand[cardType]
-}
-
-func (playingCards *PlayingCards) GetAlreadyChiCards(cardType int) *Cards{
-	return playingCards.cardsAlreadyChi[cardType]
-}
-
-func (playingCards *PlayingCards) GetAlreadyPengCards(cardType int) *Cards{
-	return playingCards.cardsAlreadyPeng[cardType]
-}
-
-func (playingCards *PlayingCards) GetAlreadyGangCards(cardType int) *Cards{
-	return playingCards.cardsAlreadyGang[cardType]
+//检查是否能提龙
+func (playingCards *PlayingCards) CanTiLong(whatCard *Card) bool {
+	return playingCards.CardsInHand.canTiLong(whatCard)
 }
 
 func (playingCards *PlayingCards) IsHu() bool {
-	playingCards.cardsForCheckHu.Clear()
-	for _, cards := range playingCards.cardsInHand {
-		mod := cards.Len() % 3
-		if mod != 0 && mod != 2 {//每一种类型的牌的数量mod 3 不是 0或者2的话肯定不可能胡
-			return false
-		}
-		playingCards.cardsForCheckHu.AppendCards(cards)
-	}
-
-	playingCards.cardsForCheckHu.Sort()
-	return true//playingCards.cardsForCheckHu.IsHu()
-}
-
-func (playingCards *PlayingCards) GetMagicCards() *Cards{
-	return playingCards.magicCards
+	return playingCards.CardsInHand.IsOkWithJiang()
 }

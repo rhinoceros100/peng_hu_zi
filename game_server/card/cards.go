@@ -263,9 +263,14 @@ func (cards *Cards) canPeng(whatCard *Card) bool  {
 	return cards.calcSameCardNum(whatCard) >= 2
 }
 
-//检查是否能杠
-func (cards *Cards) canGang(whatCard *Card) bool {
+//检查是否能扫
+func (cards *Cards) canSao(whatCard *Card) bool {
 	return cards.calcSameCardNum(whatCard) >= 3
+}
+
+//检查是否能提龙
+func (cards *Cards) canTiLong(whatCard *Card) bool {
+	return cards.calcSameCardNum(whatCard) >= 4
 }
 
 //计算与指定牌一样的牌的数量
