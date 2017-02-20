@@ -27,8 +27,8 @@ func TestPlayingCards_Chi(t *testing.T) {
 	chi := playingCards.Chi(&Card{CardType:CardType_Big, CardNo:5}, group)
 
 	assert.Equal(t, chi, true)
-	assert.Equal(t, playingCards.cardsInHand[CardType_Big].Len(), 7)
-	assert.Equal(t, playingCards.cardsAlreadyChi[CardType_Big].SameAs(group), true)
+	assert.Equal(t, playingCards.CardsInHand.Len(), 9)
+	assert.Equal(t, playingCards.AlreadyChiCards.SameAs(group), true)
 
 	groupTong := NewCards()
 	groupTong.AppendCard(&Card{CardType:CardType_Small, CardNo:6})
@@ -37,12 +37,13 @@ func TestPlayingCards_Chi(t *testing.T) {
 	chiTongErr := playingCards.Chi(&Card{CardType:CardType_Small, CardNo:8}, groupTong)
 
 	assert.Equal(t, chiTongErr, false)
-	assert.Equal(t, playingCards.cardsInHand[CardType_Small].Len(), 2)
+	assert.Equal(t, playingCards.CardsInHand.Len(), 9)
 
 	chiTongOk := playingCards.Chi(&Card{CardType:CardType_Small, CardNo:7}, groupTong)
 	assert.Equal(t, chiTongOk, true)
-	assert.Equal(t, playingCards.cardsInHand[CardType_Small].Len(), 0)
-	assert.Equal(t, playingCards.cardsAlreadyChi[CardType_Small].SameAs(groupTong), true)
+	assert.Equal(t, playingCards.CardsInHand.Len(), 7)
+	group.AppendCards(groupTong)
+	assert.Equal(t, playingCards.AlreadyChiCards.SameAs(group), true)
 
 //	t.Log(playingCards.ToString())
 }
@@ -59,13 +60,13 @@ func TestPlayingCards_Peng(t *testing.T) {
 
 	pengWan := playingCards.Peng(&Card{CardType:CardType_Big, CardNo:1})
 	assert.Equal(t, pengWan, true)
-	assert.Equal(t, playingCards.cardsInHand[CardType_Big].Len(), 1)
-	assert.Equal(t, playingCards.cardsAlreadyPeng[CardType_Big].Len(), 3)
+	assert.Equal(t, playingCards.CardsInHand.Len(), 3)
+	assert.Equal(t, playingCards.AlreadyPengCards.Len(), 1)
 
 	pengTong := playingCards.Peng(&Card{CardType:CardType_Small, CardNo:6})
 	assert.Equal(t, pengTong, true)
-	assert.Equal(t, playingCards.cardsInHand[CardType_Small].Len(), 0)
-	assert.Equal(t, playingCards.cardsAlreadyPeng[CardType_Small].Len(), 3)
+	assert.Equal(t, playingCards.CardsInHand.Len(), 1)
+	assert.Equal(t, playingCards.AlreadyPengCards.Len(), 2)
 
 	pengJian := playingCards.Peng(&Card{CardType:CardType_Small, CardNo:1})
 
@@ -74,43 +75,141 @@ func TestPlayingCards_Peng(t *testing.T) {
 }
 
 
-func TestPlayingCards_Gang(t *testing.T) {
+func TestPlayingCards_Pao(t *testing.T) {
 	playingCards := NewPlayingCards()
-	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:1})
-	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:1})
-	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:1})
+	playingCards.AlreadySaoCards.AddAndSort(&Card{CardType:CardType_Big, CardNo:1})
+	playingCards.AlreadySaoCards.AddAndSort(&Card{CardType:CardType_Big, CardNo:1})
+	playingCards.AlreadySaoCards.AddAndSort(&Card{CardType:CardType_Big, CardNo:1})
 
 	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
 	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
 
-	gangWan := playingCards.Gang(&Card{CardType:CardType_Big, CardNo:1})
-	assert.Equal(t, gangWan, true)
-	assert.Equal(t, playingCards.cardsInHand[CardType_Big].Len(), 0)
-	assert.Equal(t, playingCards.cardsAlreadyGang[CardType_Big].Len(), 4)
+	pao1 := playingCards.Pao(&Card{CardType:CardType_Big, CardNo:1})
+	assert.Equal(t, pao1, true)
+	assert.Equal(t, playingCards.CardsInHand.Len(), 2)
+	assert.Equal(t, playingCards.AlreadyPaoCards.Len(), 1)
 
-	gangTong := playingCards.Gang(&Card{CardType:CardType_Small, CardNo:6})
-	assert.Equal(t, gangTong, false)
-	assert.Equal(t, playingCards.cardsInHand[CardType_Small].Len(), 2)
-	assert.Equal(t, playingCards.cardsAlreadyGang[CardType_Small].Len(), 0)
+	pao6 := playingCards.Pao(&Card{CardType:CardType_Small, CardNo:6})
+	assert.Equal(t, pao6, false)
+	assert.Equal(t, playingCards.CardsInHand.Len(), 2)
+	assert.Equal(t, playingCards.AlreadyPaoCards.Len(), 1)
 
-	gangJian := playingCards.Peng(&Card{CardType:CardType_Small, CardNo:1})
+	peng := playingCards.Peng(&Card{CardType:CardType_Small, CardNo:1})
 
-	assert.Equal(t, gangJian, false)
+	assert.Equal(t, peng, false)
 	//t.Log(playingCards.ToString())
 }
 
-func TestPlayingCards_Reset(t *testing.T) {
+func TestPlayingCards_CanTiLong(t *testing.T) {
 	playingCards := NewPlayingCards()
-	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:1})
-	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:1})
-	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:1})
 
-	t.Log(playingCards.GetCardsInHandByType(CardType_Big))
-	assert.Equal(t, playingCards.GetCardsInHandByType(CardType_Big).Len(), 3)
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	assert.Equal(t, playingCards.CanTiLong(&Card{CardType:CardType_Small, CardNo:6}), true)
+	//t.Log(playingCards.ToString())
+}
 
-	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:1})
-	assert.Equal(t, playingCards.DropTail().String(), "一")
-	playingCards.Reset()
-	assert.Equal(t, playingCards.GetCardsInHandByType(CardType_Big).Len(), 0)
-	t.Log(playingCards.GetCardsInHandByType(CardType_Big))
+func TestPlayingCards_ComputePao(t *testing.T) {
+	playingCards := NewPlayingCards()
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.ComputeSao()
+	assert.Equal(t, playingCards.CardsInHand.Len(), 2)
+	assert.Equal(t, playingCards.AlreadySaoCards.Len(), 2)
+	assert.Equal(t, playingCards.AlreadySaoCards.At(0).SameAs(&Card{CardType:CardType_Small, CardNo:6}), true)
+	assert.Equal(t, playingCards.AlreadySaoCards.At(1).SameAs(&Card{CardType:CardType_Small, CardNo:8}), true)
+}
+
+func TestPlayingCards_ComputeTiLong(t *testing.T) {
+	playingCards := NewPlayingCards()
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.ComputeTiLong()
+	assert.Equal(t, playingCards.CardsInHand.Len(), 2)
+	assert.Equal(t, playingCards.AlreadyTiLongCards.Len(), 2)
+	assert.Equal(t, playingCards.AlreadyTiLongCards.At(0).SameAs(&Card{CardType:CardType_Small, CardNo:6}), true)
+	assert.Equal(t, playingCards.AlreadyTiLongCards.At(1).SameAs(&Card{CardType:CardType_Small, CardNo:8}), true)
+}
+
+func TestPlayingCards_IsHu(t *testing.T) {
+	playingCards := NewPlayingCards()
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:7})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:9})
+
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:4})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:4})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:4})
+
+
+	playingCards.ComputeTiLong()
+	playingCards.ComputeSao()
+
+	hu := playingCards.IsHu(&Card{CardType:CardType_Small, CardNo:10})
+	assert.Equal(t, hu, true)
+}
+
+func TestPlayingCards_IsHu2(t *testing.T) {
+	playingCards := NewPlayingCards()
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:7})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:9})
+
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:4})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:4})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:4})
+
+
+	playingCards.ComputeTiLong()
+	playingCards.ComputeSao()
+
+	hu := playingCards.IsHu(&Card{CardType:CardType_Small, CardNo:7})
+	assert.Equal(t, hu, true)
 }

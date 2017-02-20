@@ -1,31 +1,33 @@
 package card
 
+import "mahjong/game_server/log"
+
 type PlayingCards struct {
 	CardsInHand			*Cards		//手上的牌
-	ChiCards            *Cards      //已经吃的牌, 3张牌都存
-	PengCards			*Cards		//已经碰的牌，只存已碰牌的其中一张
-	SaoCards			*Cards		//已经扫的牌，只存已扫牌的其中一张
-	PaoCards			*Cards		//已经跑的牌，只存已跑牌的其中一张
-	TiLongCards         *Cards      //已经提龙的拍，只存已提龙牌的其中一张
+	AlreadyChiCards            *Cards      //已经吃的牌, 3张牌都存
+	AlreadyPengCards			*Cards		//已经碰的牌，只存已碰牌的其中一张
+	AlreadySaoCards			*Cards		//已经扫的牌，只存已扫牌的其中一张
+	AlreadyPaoCards			*Cards		//已经跑的牌，只存已跑牌的其中一张
+	AlreadyTiLongCards         *Cards      //已经提龙的拍，只存已提龙牌的其中一张
 }
 
 func NewPlayingCards() *PlayingCards {
 	return  &PlayingCards{
 		CardsInHand: NewCards(),
-		ChiCards: NewCards(),
-		PengCards: NewCards(),
-		SaoCards: NewCards(),
-		PaoCards: NewCards(),
-		TiLongCards: NewCards(),
+		AlreadyChiCards: NewCards(),
+		AlreadyPengCards: NewCards(),
+		AlreadySaoCards: NewCards(),
+		AlreadyPaoCards: NewCards(),
+		AlreadyTiLongCards: NewCards(),
 	}
 }
 
 func (playingCards *PlayingCards) Reset() {
 	playingCards.CardsInHand.Clear()
-	playingCards.PengCards.Clear()
-	playingCards.SaoCards.Clear()
-	playingCards.PaoCards.Clear()
-	playingCards.TiLongCards.Clear()
+	playingCards.AlreadyPengCards.Clear()
+	playingCards.AlreadySaoCards.Clear()
+	playingCards.AlreadyPaoCards.Clear()
+	playingCards.AlreadyTiLongCards.Clear()
 }
 
 func (playingCards *PlayingCards) AddCards(cards *Cards) {
@@ -67,9 +69,7 @@ func (playingCards *PlayingCards) Chi(whatCard *Card, whatGroup *Cards) bool {
 		playingCards.CardsInHand.TakeWay(card)
 	}
 
-	playingCards.ChiCards.AppendCards(whatGroup)
-	playingCards.ChiCards.Sort()
-
+	playingCards.AlreadyChiCards.AppendCards(whatGroup)
 	return true
 }
 
@@ -81,22 +81,38 @@ func (playingCards *PlayingCards) Peng(whatCard *Card) bool {
 
 	playingCards.CardsInHand.TakeWay(whatCard)
 	playingCards.CardsInHand.TakeWay(whatCard)
-	playingCards.PengCards.AddAndSort(whatCard)
+	playingCards.AlreadyPengCards.AddAndSort(whatCard)
 	return true
 }
 
 //跑牌
 func (playingCards *PlayingCards) Pao(whatCard *Card) bool {
-	if !playingCards.CanPao(whatCard) {
-		return false
+	if playingCards.AlreadySaoCards.hasCard(whatCard) {
+		playingCards.AlreadySaoCards.TakeWay(whatCard)
+		playingCards.AlreadyPaoCards.AddAndSort(whatCard)
+		return true
+	} else if playingCards.AlreadyPengCards.hasCard(whatCard) {
+		playingCards.AlreadyPengCards.TakeWay(whatCard)
+		playingCards.AlreadyPaoCards.AddAndSort(whatCard)
+		return true
 	}
+	return false
+}
 
-	playingCards.CardsInHand.TakeWay(whatCard)
-	playingCards.CardsInHand.TakeWay(whatCard)
-	playingCards.CardsInHand.TakeWay(whatCard)
+//提龙
+func (playingCards *PlayingCards) TiLong(whatCard *Card) bool {
+	for i:=0; i<4; i++ {
+		playingCards.CardsInHand.TakeWay(whatCard)
+	}
+	playingCards.AlreadyTiLongCards.AddAndSort(whatCard)
+}
 
-	playingCards.PaoCards.AddAndSort(whatCard)
-	return true
+//扫
+func (playingCards *PlayingCards) Sao(whatCard *Card) bool {
+	for i:=0; i<3; i++ {
+		playingCards.CardsInHand.TakeWay(whatCard)
+	}
+	playingCards.AlreadySaoCards.AddAndSort(whatCard)
 }
 
 /*	计算指定的牌可以吃牌的组合
@@ -122,11 +138,12 @@ func (playingCards *PlayingCards) CanSao(whatCard *Card) bool {
 
 //检查是否能跑
 func (playingCards *PlayingCards) CanPao(whatCard *Card) bool {
-	can := playingCards.SaoCards.hasCard(whatCard)
-	if can {
-		return can
+	if playingCards.AlreadySaoCards.hasCard(whatCard) {
+		return true
+	} else if playingCards.AlreadyPengCards.hasCard(whatCard) {
+		return true
 	}
-	return playingCards.PengCards.hasCard(whatCard)
+	return false
 }
 
 //检查是否能提龙
@@ -134,6 +151,70 @@ func (playingCards *PlayingCards) CanTiLong(whatCard *Card) bool {
 	return playingCards.CardsInHand.canTiLong(whatCard)
 }
 
-func (playingCards *PlayingCards) IsHu() bool {
-	return playingCards.CardsInHand.IsOkWithJiang()
+func (playingCards *PlayingCards) TestCard(whatCard *Card) {
+	playingCards.CardsInHand.AddAndSort(whatCard)
+	ok := false
+	if playingCards.CanTiLong(whatCard) {
+		ok = true
+
+	}
+}
+
+func (playingCards *PlayingCards) IsHu(whatCard *Card) bool {
+	saoAndTLCnt := playingCards.AlreadyPaoCards.Len() + playingCards.AlreadyTiLongCards.Len()
+	if saoAndTLCnt >= 2 {
+		ok := playingCards.CardsInHand.IsOkWithJiang()
+		if ok {
+			return true
+		}
+	}
+
+	log.Debug("IsHu", whatCard)
+	playingCards.CardsInHand.AddAndSort(whatCard)
+	log.Debug(playingCards.CardsInHand)
+	ok := playingCards.CardsInHand.IsOkWithoutJiang()
+	if !ok {
+		playingCards.CardsInHand.TakeWay(whatCard)
+	}
+	return ok
+}
+
+//计算提龙
+func (playingCards *PlayingCards) ComputeTiLong() {
+	cards := playingCards.CardsInHand
+	start := 0
+	for ; start < cards.Len()-3; {
+		if cards.At(start).SameAs(cards.At(start + 3)) {
+			playingCards.AlreadyTiLongCards.AppendCard(cards.At(start))
+			start += 3
+		} else {
+			start++
+		}
+	}
+
+	for _, card := range playingCards.AlreadyTiLongCards.data {
+		for i := 0; i < 4; i ++ {
+			playingCards.CardsInHand.TakeWay(card)
+		}
+	}
+}
+
+//计算扫牌
+func (playingCards *PlayingCards) ComputeSao() {
+	cards := playingCards.CardsInHand
+	start := 0
+	for ; start < cards.Len()-2; {
+		if cards.At(start).SameAs(cards.At(start + 2)) {
+			playingCards.AlreadySaoCards.AppendCard(cards.At(start))
+			start += 3
+		} else {
+			start++
+		}
+	}
+
+	for _, card := range playingCards.AlreadySaoCards.data {
+		for i := 0; i < 3; i ++ {
+			playingCards.CardsInHand.TakeWay(card)
+		}
+	}
 }

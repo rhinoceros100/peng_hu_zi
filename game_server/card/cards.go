@@ -205,9 +205,7 @@ func (cards *Cards) IsOkWithJiang() bool  {
 
 func (cards *Cards) IsOkWithoutJiang() bool  {
 	if !cards.isOkWithoutJiang() {
-		if cards.Len() != 12 {
-			cards.Sort(BIG_CARD_IN_FRONT)
-		}
+		cards.Sort(BIG_CARD_IN_FRONT)
 		return cards.isOkWithoutJiang()
 	}
 	return true
