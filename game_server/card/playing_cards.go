@@ -1,6 +1,27 @@
 package card
 
-import "mahjong/game_server/log"
+import (
+	"fmt"
+//	"mahjong/game_server/log"
+)
+
+type TestCardResult struct {
+	CanPao		bool
+	CanSao		bool
+	CanHu		bool
+	CanPeng		bool
+	ChiGroup	[]*Cards
+}
+
+func (result *TestCardResult) String() string {
+	return fmt.Sprintf("{CanPao=%v, CanSao=%v, CanHu=%v, CanPeng=%v, ChiGroup=%v}",
+		result.CanPao,
+		result.CanSao,
+		result.CanHu,
+		result.CanPeng,
+		result.ChiGroup,
+	)
+}
 
 type PlayingCards struct {
 	CardsInHand			*Cards		//手上的牌
@@ -101,18 +122,26 @@ func (playingCards *PlayingCards) Pao(whatCard *Card) bool {
 
 //提龙
 func (playingCards *PlayingCards) TiLong(whatCard *Card) bool {
+	if !playingCards.CanTiLong(whatCard) {
+		return false
+	}
 	for i:=0; i<4; i++ {
 		playingCards.CardsInHand.TakeWay(whatCard)
 	}
 	playingCards.AlreadyTiLongCards.AddAndSort(whatCard)
+	return true
 }
 
 //扫
 func (playingCards *PlayingCards) Sao(whatCard *Card) bool {
+	if !playingCards.CanSao(whatCard) {
+		return false
+	}
 	for i:=0; i<3; i++ {
 		playingCards.CardsInHand.TakeWay(whatCard)
 	}
 	playingCards.AlreadySaoCards.AddAndSort(whatCard)
+	return true
 }
 
 /*	计算指定的牌可以吃牌的组合
@@ -151,13 +180,20 @@ func (playingCards *PlayingCards) CanTiLong(whatCard *Card) bool {
 	return playingCards.CardsInHand.canTiLong(whatCard)
 }
 
-func (playingCards *PlayingCards) TestCard(whatCard *Card) {
-	playingCards.CardsInHand.AddAndSort(whatCard)
-	ok := false
-	if playingCards.CanTiLong(whatCard) {
-		ok = true
-
+func (playingCards *PlayingCards) TestCard(whatCard *Card) *TestCardResult{
+	result := &TestCardResult{}
+	if playingCards.CanPao(whatCard) {
+		result.CanPao = true
+	} else if playingCards.CanSao(whatCard) {
+		result.CanSao = true
 	}
+
+	result.CanHu = playingCards.IsHu(whatCard)
+
+	if !result.CanHu {
+		result.ChiGroup = playingCards.ComputeChiGroup(whatCard)
+	}
+	return result
 }
 
 func (playingCards *PlayingCards) IsHu(whatCard *Card) bool {
@@ -169,13 +205,9 @@ func (playingCards *PlayingCards) IsHu(whatCard *Card) bool {
 		}
 	}
 
-	log.Debug("IsHu", whatCard)
 	playingCards.CardsInHand.AddAndSort(whatCard)
-	log.Debug(playingCards.CardsInHand)
 	ok := playingCards.CardsInHand.IsOkWithoutJiang()
-	if !ok {
-		playingCards.CardsInHand.TakeWay(whatCard)
-	}
+	playingCards.CardsInHand.TakeWay(whatCard)
 	return ok
 }
 

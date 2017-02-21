@@ -83,11 +83,11 @@ func Is3CardsOk(cards ...*Card) bool {
 	if len(cards) != 3 {
 		return false
 	}
-	/* 不会有AAA
+
 	if IsAAA(cards[0], cards[1], cards[2]) {
 		return true
 	}
-	*/
+
 	if IsABC(cards[0], cards[1], cards[2]) {
 		return true
 	}

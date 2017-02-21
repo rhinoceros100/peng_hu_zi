@@ -180,8 +180,11 @@ func TestPlayingCards_IsHu(t *testing.T) {
 	playingCards.ComputeTiLong()
 	playingCards.ComputeSao()
 
-	hu := playingCards.IsHu(&Card{CardType:CardType_Small, CardNo:10})
-	assert.Equal(t, hu, true)
+	whatCard := &Card{CardType:CardType_Small, CardNo:10}
+	result := playingCards.TestCard(whatCard)
+	t.Log(playingCards.CardsInHand, whatCard)
+	t.Log(result)
+	assert.Equal(t, result.CanHu, true)
 }
 
 func TestPlayingCards_IsHu2(t *testing.T) {
@@ -210,6 +213,44 @@ func TestPlayingCards_IsHu2(t *testing.T) {
 	playingCards.ComputeTiLong()
 	playingCards.ComputeSao()
 
-	hu := playingCards.IsHu(&Card{CardType:CardType_Small, CardNo:7})
-	assert.Equal(t, hu, true)
+	whatCard := &Card{CardType:CardType_Small, CardNo:7}
+	result := playingCards.TestCard(whatCard)
+	t.Log(playingCards.CardsInHand, whatCard)
+	t.Log(result)
+	assert.Equal(t, result.CanHu, true)
+}
+
+func TestPlayingCards_TestCard(t *testing.T) {
+	playingCards := NewPlayingCards()
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:6})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:7})
+
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:8})
+
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:7})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:8})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:9})
+
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:4})
+	playingCards.AddCard(&Card{CardType:CardType_Small, CardNo:4})
+	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:4})
+
+
+	playingCards.ComputeTiLong()
+	playingCards.ComputeSao()
+
+	whatCard := &Card{CardType:CardType_Small, CardNo:7}
+	result := playingCards.TestCard(whatCard)
+	t.Log(playingCards.CardsInHand, whatCard)
+	t.Log(result)
+	assert.Equal(t, result.CanHu, true)
+	assert.Equal(t, playingCards.AlreadyTiLongCards.Len(), 1)
+	assert.Equal(t, playingCards.AlreadySaoCards.Len(), 1)
 }
