@@ -8,10 +8,7 @@ import (
 type OperateType int
 
 const (
-	OperateGetInitCards	OperateType = iota + 1
-	OperateDispatchCard
-
-	OperateEnterRoom
+	OperateEnterRoom	OperateType = iota + 1
 	OperateLeaveRoom
 
 	OperateDropCard
@@ -20,6 +17,7 @@ const (
 	OperateSaoCard
 	OperatePaoCard
 	OperateTiLongCard
+
 	OperateHu
 )
 
@@ -27,7 +25,7 @@ type Operate struct {//玩家操作
 	Op			OperateType
 	Operator	*Player				//操作者
 	Data		interface{}
-	Result		chan interface{}
+	ResultCh		chan bool
 }
 
 func (op *Operate) String() string {
@@ -42,39 +40,17 @@ func newOperate(op OperateType, operator *Player, data interface{}) *Operate{
 		Op:	op,
 		Data: data,
 		Operator: operator,
-		Result: make(chan interface{}),
+		ResultCh: make(chan bool, 1),
 	}
 }
-/*
-type OperateGetInitCardsData struct {
-	PlayingCards *card.PlayingCards
-}
-func NewOperateGetInitCards(operator *Player, data *OperateGetInitCardsData) *Operate {
-	return newOperate(OperateGetInitCards, operator, data)
-}
-
-type OperateDispatchCardData struct {
-	Card 	*card.Card
-}
-func NewOperateDispatchCard(operator *Player, data *OperateDispatchCardData) *Operate {
-	return newOperate(OperateDispatchCard, operator, data)
-}
-*/
-
 
 type OperateEnterRoomData struct {
-}
-type OperateEnterRoomResult struct {
-	Ok	bool
 }
 func NewOperateEnterRoom(operator *Player, data *OperateEnterRoomData) *Operate {
 	return newOperate(OperateEnterRoom, operator, data)
 }
 
 type OperateLeaveRoomData struct {
-}
-type OperateLeaveRoomResult struct {
-	Ok	bool
 }
 func NewOperateLeaveRoom(operator *Player, data *OperateLeaveRoomData) *Operate {
 	return newOperate(OperateLeaveRoom, operator, data)
@@ -84,9 +60,6 @@ func NewOperateLeaveRoom(operator *Player, data *OperateLeaveRoomData) *Operate 
 type OperateDropCardData struct{
 	Card *card.Card
 }
-type OperateDropCardResult struct {
-	OK bool
-}
 func NewOperateDropCard(operator *Player, data *OperateDropCardData) *Operate {
 	return newOperate(OperateDropCard, operator, data)
 }
@@ -94,9 +67,6 @@ func NewOperateDropCard(operator *Player, data *OperateDropCardData) *Operate {
 type OperateChiCardData struct {
 	Card 	*card.Card
 	Group	*card.Cards
-}
-type OperateChiCardResultData struct {
-	ok bool
 }
 func NewOperateChiCard(operator *Player, data *OperateChiCardData) *Operate {
 	return newOperate(OperateChiCard, operator, data)
@@ -129,6 +99,7 @@ type OperateTiLongCardData struct {
 func NewOperateTiLongCard(operator *Player, data *OperateTiLongCardData) *Operate {
 	return newOperate(OperateTiLongCard, operator, data)
 }
+
 
 type OperateHuData struct {
 	HuPlayer		*Player			// 胡牌的玩家

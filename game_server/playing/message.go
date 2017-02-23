@@ -46,7 +46,7 @@ func newMsg(t MsgType, owner *Player, data interface{}) *Message {
 
 //玩家获得初始牌的消息
 type GetInitCardsMsgData struct {
-	playingCards	*card.PlayingCards
+	PlayingCards	*card.PlayingCards
 }
 func NewGetInitCardsMsg(owner *Player, data *GetInitCardsMsgData) *Message {
 	return newMsg(MsgGetInitCards, owner, data)
