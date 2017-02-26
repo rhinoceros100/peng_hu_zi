@@ -140,13 +140,13 @@ func (cards *Cards) PopFront() *Card {
 }
 
 //取走最后一张牌
-func (cards *Cards) PopTail() *Card {
+func (cards *Cards) Tail() *Card {
 	if cards.Len() == 0 {
 		return nil
 	}
-	card := cards.At(cards.Len()-1)
-	cards.data = cards.data[:cards.Len()-1]
-	return card
+	return cards.At(cards.Len()-1)
+	//cards.data = cards.data[:cards.Len()-1]
+	//return card
 }
 
 //随机取走一张牌

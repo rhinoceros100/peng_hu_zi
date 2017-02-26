@@ -1,0 +1,6 @@
+{
+  "need_player_num" : 4,
+  "wait_player_enter_room_timeout" : 300,
+  "wait_player_operate_timeout" : 15,
+  "max_play_game_cnt" : 32
+}

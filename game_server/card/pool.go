@@ -52,10 +52,6 @@ func (pool *Pool) PopFront() *Card {
 	return pool.cards.PopFront()
 }
 
-func (pool *Pool) PopTail() *Card{
-	return pool.cards.PopTail()
-}
-
 func (pool *Pool) At(idx int) *Card {
 	return pool.cards.At(idx)
 }

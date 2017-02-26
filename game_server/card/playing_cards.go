@@ -1,28 +1,5 @@
 package card
 
-import (
-	"fmt"
-//	"mahjong/game_server/log"
-)
-
-type TestCardResult struct {
-	CanPao		bool
-	CanSao		bool
-	CanHu		bool
-	CanPeng		bool
-	ChiGroup	[]*Cards
-}
-
-func (result *TestCardResult) String() string {
-	return fmt.Sprintf("{CanPao=%v, CanSao=%v, CanHu=%v, CanPeng=%v, ChiGroup=%v}",
-		result.CanPao,
-		result.CanSao,
-		result.CanHu,
-		result.CanPeng,
-		result.ChiGroup,
-	)
-}
-
 type PlayingCards struct {
 	CardsInHand			*Cards		//手上的牌
 	AlreadyChiCards            *Cards      //已经吃的牌, 3张牌都存
@@ -73,8 +50,8 @@ func (playingCards *PlayingCards) DropCard(card *Card) bool {
 	return playingCards.CardsInHand.TakeWay(card)
 }
 
-func (playingCards *PlayingCards) DropTail() *Card {
-	return playingCards.CardsInHand.PopTail()
+func (playingCards *PlayingCards) Tail() *Card {
+	return playingCards.CardsInHand.Tail()
 }
 
 //吃牌，要吃whatCard，以及吃哪个组合whatGroup
@@ -180,31 +157,18 @@ func (playingCards *PlayingCards) CanTiLong(whatCard *Card) bool {
 	return playingCards.CardsInHand.canTiLong(whatCard)
 }
 
-func (playingCards *PlayingCards) TestCard(whatCard *Card) *TestCardResult{
-	result := &TestCardResult{}
-	if playingCards.CanPao(whatCard) {
-		result.CanPao = true
-	} else if playingCards.CanSao(whatCard) {
-		result.CanSao = true
-	}
-
-	result.CanHu = playingCards.IsHu(whatCard)
-
-	if !result.CanHu {
-		result.ChiGroup = playingCards.ComputeChiGroup(whatCard)
-	}
-	return result
-}
-
-func (playingCards *PlayingCards) IsHu(whatCard *Card) bool {
-	saoAndTLCnt := playingCards.AlreadyPaoCards.Len() + playingCards.AlreadyTiLongCards.Len()
-	if saoAndTLCnt >= 2 {
+func (playingCards *PlayingCards) IsHu() bool {
+	paoAndTLCnt := playingCards.GetPaoAndTiLongNum()
+	if paoAndTLCnt >= 2 {
 		ok := playingCards.CardsInHand.IsOkWithJiang()
 		if ok {
 			return true
 		}
 	}
+	return false
+}
 
+func (playingCards *PlayingCards) IsHuThisCard(whatCard *Card) bool {
 	playingCards.CardsInHand.AddAndSort(whatCard)
 	ok := playingCards.CardsInHand.IsOkWithoutJiang()
 	playingCards.CardsInHand.TakeWay(whatCard)
@@ -249,4 +213,8 @@ func (playingCards *PlayingCards) ComputeSao() {
 			playingCards.CardsInHand.TakeWay(card)
 		}
 	}
+}
+
+func (playingCards *PlayingCards) GetPaoAndTiLongNum() int{
+	return playingCards.AlreadyPaoCards.Len() + playingCards.AlreadyTiLongCards.Len()
 }

@@ -1,10 +1,10 @@
 package playing
 
 import (
-	"mahjong/game_server/card"
-	"mahjong/game_server/log"
+	"peng_hu_zi/game_server/card"
+	"peng_hu_zi/log"
 	"time"
-	"mahjong/game_server/util"
+	"peng_hu_zi/util"
 	"fmt"
 )
 
@@ -12,10 +12,26 @@ type RoomStatusType int
 const (
 	RoomStatusWaitAllPlayerEnter	RoomStatusType = iota	// 等待玩家进入房间
 	RoomStatusWaitStartPlayGame				// 等待游戏开始
-	RoomStatusPlayingGame					// 正在进行游戏，结束后会进入RoomStatusEndPlayGame
+	RoomStatusPlayGame					// 正在进行游戏，结束后会进入RoomStatusEndPlayGame
 	RoomStatusEndPlayGame					// 游戏结束后会回到等待游戏开始状态，或者进入结束房间状态
-	RoomStatusRoomEnd							// 房间结束状态，比如东南西北风都打完了
+	RoomStatusRoomEnd						// 房间结束状态
 )
+
+func (status RoomStatusType) String() string {
+	switch status {
+	case RoomStatusWaitAllPlayerEnter :
+		return "RoomStatusWaitAllPlayerEnter"
+	case RoomStatusWaitStartPlayGame:
+		return "RoomStatusWaitStartPlayGame"
+	case RoomStatusPlayGame:
+		return "RoomStatusPlayGame"
+	case RoomStatusEndPlayGame:
+		return "RoomStatusEndPlayGame"
+	case RoomStatusRoomEnd:
+		return "RoomStatusRoomEnd"
+	}
+	return "unknow RoomStatus"
+}
 
 type RoomObserver interface {
 	OnRoomClosed(room *Room)
@@ -25,46 +41,55 @@ type Room struct {
 	id				uint64					//房间id
 	config 			*RoomConfig				//房间配置
 	players 		[]*Player				//当前房间的玩家列表
+
 	observers		[]RoomObserver			//房间观察者，需要实现OnRoomClose，房间close的时候会通知它
 
 	roomStatus		RoomStatusType						//房间当前的状态
 
-	firstMasterPlayer *Player				//第一个做东的玩家
 	lastHuPlayer	*Player					//最后一次胡牌的玩家
 	playedGameCnt	int						//已经玩了的游戏的次数
 
 	//begin playingGameData, reset when start playing game
 	cardPool		*card.Pool				//洗牌池
-	magicCard		*card.Card				//当前的癞子牌
 	masterPlayer	*Player					//做东的玩家，打筛子的玩家
-	curOperator	*Player				//获得当前操作的玩家，可能是摸牌，碰牌，杠牌，吃牌，等他出牌
-	prevOperator *Player
-	quanFeng		*QuanFeng						//当前风圈
-	otherPlayerOperate  []*PlayerOperate //当有玩家出牌，其它玩家的操作队列，依据优先级高低处理：胡 > 碰/杠 > 吃
+	curOperator	*Player				//获得当前操作的玩家，可能是碰牌，跑牌，吃牌，等他出牌
+	prevOperator *Player			//上一个操作的玩家
+	lastDropCardOperator *Player	//最后一个出牌的人，可能是系统，可能是玩家，系统发牌时，该值为nil
+	operateQue  []*Operate //当有玩家出牌或者系统排牌时，玩家的操作队列，依据优先级高低处理：胡 > 碰/跑 > 吃
 	//end playingGameData, reset when start playing game
 
-	playerOpCh		chan *PlayerOperate		//用户操作的channel
+	//playerOpCh		chan *Operate		//用户操作的channel
+
+	roomOperateCh				chan *Operate
+	dropCardCh					chan *Operate
+	masterChiCardCh				chan *Operate
+	masterNextPlayerChiCardCh 	chan *Operate
+	pengCardCh					chan *Operate
+	paoCardCh					chan *Operate
 
 	stop bool
 }
 
-func NewRoom(config *RoomConfig) *Room {
+func NewRoom(id uint64, config *RoomConfig) *Room {
 	room := &Room{
-		id:				util.UniqueId(),
+		id:				id,
 		config:			config,
 		players:		make([]*Player, 0),
 		cardPool:		card.NewPool(),
 		observers:		make([]RoomObserver, 0),
 		roomStatus:		RoomStatusWaitAllPlayerEnter,
-		quanFeng:		newQuanFeng(card.Feng_CardNo_Dong),
 		playedGameCnt:	0,
 
-		otherPlayerOperate:	make([]*PlayerOperate, 0),
+		operateQue:	make([]*Operate, 0),
 
-		playerOpCh:		make(chan *PlayerOperate, 1024),
+		//playerOpCh:		make(chan *Operate, 1024),
+		roomOperateCh: make(chan *Operate, 1024),
+		dropCardCh: make(chan *Operate, 1024),
+		masterChiCardCh: make(chan *Operate, 1024),
+		masterNextPlayerChiCardCh: make(chan *Operate, 1024),
+		pengCardCh: make(chan *Operate, 1024),
 	}
 
-	room.init()
 	return room
 }
 
@@ -72,8 +97,21 @@ func (room *Room) GetId() uint64 {
 	return room.id
 }
 
-func (room *Room) PlayerOperate(op *PlayerOperate) {
-	room.playerOpCh <- op
+func (room *Room) PlayerOperate(op *Operate) {
+	switch op.Op {
+	case OperateEnterRoom, OperateLeaveRoom:
+		room.roomOperateCh <- op
+	case OperateDropCard:
+		room.dropCardCh <- op
+	case OperateChiCard:
+		if op.Operator == room.curOperator {
+			room.masterChiCardCh <- op
+		} else if op.Operator == room.nextPlayer(room.curOperator) {
+			room.masterNextPlayerChiCardCh <- op
+		}
+	case OperatePengCard:
+		room.pengCardCh <- op
+	}
 }
 
 func (room *Room) addObserver(observer RoomObserver) {
@@ -96,8 +134,8 @@ func (room *Room) checkStatus() {
 		room.waitAllPlayerEnter()
 	case RoomStatusWaitStartPlayGame:
 		room.startPlayGame()
-	case RoomStatusPlayingGame:
-		room.playingGame()
+	case RoomStatusPlayGame:
+		room.playGame()
 	case RoomStatusEndPlayGame:
 		room.endPlayGame()
 	case RoomStatusRoomEnd:
@@ -106,13 +144,6 @@ func (room *Room) checkStatus() {
 }
 
 func (room *Room) isRoomEnd() bool {
-	if room.config.WithQuanFeng {
-		if !room.quanFeng.isLastQuanFeng() {//不是最后一圈，肯定没结束
-			return false
-		}
-		return room.computeQuanFeng().isFirstQuanFeng()
-	}
-
 	return room.playedGameCnt >= room.config.MaxPlayGameCnt
 }
 
@@ -128,12 +159,10 @@ func (room *Room) close() {
 	}
 }
 
-func (room *Room) checkAllPlayerEnter() {
+func (room *Room) isAllPlayerEnter() bool {
 	length := len(room.players)
-	log.Debug(room, "Room.checkAllPlayerEnter, player num :", length, ", need :", room.config.NeedPlayerNum)
-	if length >= room.config.NeedPlayerNum {
-		room.switchStatus(RoomStatusWaitStartPlayGame)
-	}
+	log.Debug(room, "Room.isAllPlayerEnter, player num :", length, ", need :", room.config.NeedPlayerNum)
+	return length >= room.config.NeedPlayerNum
 }
 
 func (room *Room) switchStatus(status RoomStatusType) {
@@ -142,60 +171,49 @@ func (room *Room) switchStatus(status RoomStatusType) {
 }
 
 func (room *Room) startPlayGame()  {
-	log.Debug(room, "Room.startPlayerGame")
+	log.Debug(room, "Room.startPlayGame")
 
 	// 重置牌池, 洗牌
 	room.cardPool.ReGenerate()
 
-	// 计算癞子牌，如果有的话
-	room.computeMagicCard()
-
 	// 选择东家
 	room.masterPlayer = room.selectMasterPlayer()
-	if room.firstMasterPlayer == nil {
-		room.firstMasterPlayer = room.masterPlayer
-	}
 
-	//选完东家后，计算圈风
-	if room.config.WithQuanFeng {
-		room.quanFeng = room.computeQuanFeng()
-	}
-
-	// 设定获得牌的玩家的索引为东家
-	room.curOperator = room.masterPlayer
+	// 设定获得牌的玩家为东家
+	room.switchOperator(room.masterPlayer)
 	room.prevOperator = nil
+	room.lastDropCardOperator = nil
 
-	room.otherPlayerOperate = room.otherPlayerOperate[0:0]
+	room.operateQue = room.operateQue[0:0]
 
 	//发初始牌给所有玩家
 	room.putInitCardsToPlayers()
 
 	//通知所有玩家手上的牌
 	for _, player := range room.players {
-		data := &PlayerOperateGetInitCardsData{
-			CardsInHand: player.playingCards.GetCardsInHand(),
-			MagicCards: player.playingCards.GetMagicCards(),
-		}
-		player.OnPlayerSuccessOperated(NewPlayerOperateGetInitCards(player, nil, data))
+		player.OnGetInitCards()
 	}
 
-	room.switchStatus(RoomStatusPlayingGame)
+	//todo
+	//检查天胡
+	//计算所有玩家的提扫
+
+	room.switchStatus(RoomStatusPlayGame)
+
+	room.waitPlayerDrop()
 }
 
-func (room *Room) playingGame() {
+func (room *Room) playGame() {
 	// 发牌给玩家
-	card := room.putCardToPlayer(room.curOperator)
-	log.Debug(room, "Room.playingGame put card[ ", card.Name(), "]to", room.curOperator)
-	if card == nil {
+	card := room.cardPool.PopFront()
+	log.Debug(room, "Room.playingGame put card[ ", card, "]to", room.curOperator)
+	if card == nil {//没有牌了，该局结束，流局
 		room.switchStatus(RoomStatusEndPlayGame)
-	} else {
-		data := &PlayerOperateGetData{
-			Card: card,
-		}
-		operate := NewPlayerOperateGet(room.curOperator, data)
-		room.broadcastPlayerSuccessOperated(operate)
-		room.waitCurPlayerOperate()
+		return
 	}
+
+	room.broadcastDispatchCard(card)
+	room.checkTestCard(card, true)
 }
 
 func (room *Room) endPlayGame() {
@@ -206,7 +224,7 @@ func (room *Room) endPlayGame() {
 		room.switchStatus(RoomStatusRoomEnd)
 	} else {
 		for _, player := range room.players {
-			player.OnPlayingGameEnd()
+			player.OnEndPlayGame()
 		}
 		log.Debug(room, "Room.endPlayGame restart play game")
 		room.switchStatus(RoomStatusWaitStartPlayGame)
@@ -223,26 +241,31 @@ func (room *Room) waitAllPlayerEnter() {
 		select {
 		case <-time.After(timer):
 			log.Debug(room, "waitAllPlayerEnter timeout", timeout)
-			room.switchStatus(RoomStatusRoomEnd) //超时发现没有全部玩家都进入房间了，则结束
+			room.switchStatus(RoomStatusRoomEnd) //超时发现没有足够的玩家都进入房间了，则结束
 			return
-		case op := <-room.playerOpCh:
-			if op.Op == PlayerOperateEnterRoom || op.Op == PlayerOperateLeaveRoom {
-				log.Debug(room, "Room.waitAllPlayerEnter catch operate:", op.String())
+		case op := <-room.roomOperateCh:
+			if op.Op == OperateEnterRoom || op.Op == OperateLeaveRoom {
+				log.Debug(room, "Room.waitAllPlayerEnter catch operate:", op)
 				room.dealPlayerOperate(op)
+				if room.isAllPlayerEnter() {
+					room.switchStatus(RoomStatusWaitStartPlayGame)
+					return
+				}
 			}
 		}
 	}
 }
 
-//给所有玩家发初始化的13张牌
+//给所有玩家发初始化的14张牌, 东家15张
 func (room *Room) putInitCardsToPlayers() {
 	log.Debug(room, "Room.initAllPlayer")
 	for _, player := range room.players {
 		player.Reset()
-		for num := 0; num < 13; num++ {
+		for num := 0; num < 14; num++ {
 			room.putCardToPlayer(player)
 		}
 	}
+	room.putCardToPlayer(room.masterPlayer)
 }
 
 //添加玩家
@@ -263,140 +286,22 @@ func (room *Room) delPlayer(player *Player)  {
 	}
 }
 
-//初始化cardool
-func (room *Room) init() {
-	config := room.config
-	if config.WithFengCard {
-		room.cardPool.AddFengGenerater()
-	}
-	if config.WithJianCard {
-		room.cardPool.AddJianGenerater()
-	}
-	if config.WithHuaCard {
-		room.cardPool.AddHuaGenerater()
-	}
-	if config.WithWanCard {
-		room.cardPool.AddWanGenerater()
-	}
-	if config.WithTiaoCard {
-		room.cardPool.AddTiaoGenerater()
-	}
-	if config.WithTongCard {
-		room.cardPool.AddTongGenerater()
-	}
-}
-
-//计算癞子牌
-func (room *Room) computeMagicCard() {
-	log.Debug(room, "Room.computeMagicCard, HasMagicCard:", room.config.HasMagicCard)
-	if !room.config.HasMagicCard {
-		return
-	}
-	cardIdx := room.config.NeedPlayerNum * 13
-	card := room.cardPool.At(cardIdx)
-	room.magicCard = card.Next()
-	log.Debug(room, "Room.computeMagicCard, MagicCard :", room.magicCard.Name())
-}
-
-//是否癞子牌
-func (room *Room) isMagicCard(card *card.Card) bool {
-	if !room.config.HasMagicCard {
-		return false
-	}
-	return card.SameAs(room.magicCard)
-}
-
 //发牌给指定玩家
 func (room *Room) putCardToPlayer(player *Player) *card.Card {
 	card := room.cardPool.PopFront()
 	if card == nil {
 		return nil
 	}
-	if room.isMagicCard(card) {
-		player.AddMagicCard(card)
-	} else {
-		player.AddCard(card)
-	}
+	player.AddCard(card)
 	return card
 }
 
 //选择东家
 func (room *Room) selectMasterPlayer() *Player {
-	log.Debug(room, "Room.selectMasterPlayer")
-	if room.playedGameCnt == 0 { //第一盘，随机一个做东
-		idx := util.RandomN(len(room.players))
-		log.Debug(room, "Room.selectMasterPlayer", room.players[idx])
-		return room.players[idx]
-	}
+	idx := util.RandomN(len(room.players))
+	log.Debug(room, "Room.selectMasterPlayer", room.players[idx])
+	return room.players[idx]
 
-	if room.lastHuPlayer == nil {//流局，上一盘没有人胡牌
-		log.Debug(room, "Room.selectMasterPlayer", room.masterPlayer)
-		return room.masterPlayer
-	}
-
-	if !room.config.WithQuanFeng { //不支持圈风，那就谁胡谁做东
-		log.Debug(room, "Room.selectMasterPlayer", room.lastHuPlayer)
-		return room.lastHuPlayer
-	}
-
-	//支持圈风，那就如果他胡了就继续做东，否则他的下一个玩家做东
-	if room.masterPlayer == room.lastHuPlayer { //上一次做东的人最后一次胡牌了，继续他做东
-		log.Debug(room, "Room.selectMasterPlayer", room.masterPlayer)
-		return room.masterPlayer
-	}
-	next := room.nextPlayer(room.masterPlayer)
-	log.Debug(room, "Room.selectMasterPlayer", next)
-	return next
-}
-
-//等待获得牌的玩家操作, 胡？杠？出牌？如果没有任何操作，超时的话，自动帮他出一张牌
-func (room *Room) waitCurPlayerOperate() {
-	log.Debug(room, "Room.waitCurPlayerOperate")
-	breakTimerTime := time.Duration(0)
-	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
-	for  {
-		timer := timeout - breakTimerTime
-		select {
-		case <-time.After(timer):
-			//超时没有操作，自动帮他出一张牌
-			card := room.curOperator.AutoDrop()
-			log.Debug(room, "Room.waitCurPlayerOperate auto drop :", card.Name(), ", timeout :", timeout)
-			room.curOperator.OperateDrop(card)
-		case op := <-room.playerOpCh:
-			log.Debug(room, "Room.waitCurPlayerOperate catch operate :", op.String())
-			if op.Operator != room.curOperator {
-				//不是当前玩家的操作，直接无视
-				return
-			}
-			if op.Op == PlayerOperateChi || op.Op == PlayerOperatePeng || op.Op == PlayerOperateDianPao {
-				//当前玩家不可能吃牌、碰牌、点炮胡别人
-				return
-			}
-			room.dealPlayerOperate(op)
-		}
-	}
-}
-
-//当玩家出牌后，等待其他玩家操作
-func (room *Room) waitOtherPlayerOperateAfterDrop() {
-	log.Debug(room, "Room.waitOtherPlayerOperateAfterDrop")
-	breakTimerTime := time.Duration(0)
-	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
-	for  {
-		timer := timeout - breakTimerTime
-		select {
-		case <- time.After(timer):
-			//超时没有其它玩家有任何操作, 设置下一个操作者，继续
-			room.curOperator = room.nextPlayer(room.curOperator)
-			log.Debug(room, "Room.waitOtherPlayerOperateAfterDrop timeout :", timeout, ", so set next operator :", room.curOperator)
-		case op := <-room.playerOpCh :
-			log.Debug(room, "Room.waitOtherPlayerOperateAfterDrop operate:", op.String())
-			if op.Operator == room.curOperator {//操作者不可能是出牌者，直接无视
-				return
-			}
-			room.dealPlayerOperate(op)
-		}
-	}
 }
 
 //等待碰、吃牌的玩家出牌，超时的话，自动帮他出一张牌
@@ -404,36 +309,96 @@ func (room *Room) waitPlayerDrop() {
 	log.Debug(room, "Room.waitPlayerDrop")
 	breakTimerTime := time.Duration(0)
 	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
+	var dropOp *Operate
 	for  {
 		timer := timeout - breakTimerTime
 		select {
 		case <- time.After(timer):
-			card := room.curOperator.AutoDrop()
-			log.Debug(room, "Room.waitPlayerDrop auto drop :", card.Name(), ", timeout :", timeout)
-			room.curOperator.OperateDrop(card)
+			dropOp = room.makeDropCardOperate(room.curOperator, room.curOperator.GetTailCard())
+			log.Debug(room, "Room.waitPlayerDrop ", room.curOperator, "auto drop", " op :", dropOp)
+			room.dealPlayerOperate(dropOp)
 			return
-		case op := <-room.playerOpCh :
-			log.Debug(room, "Room.waitPlayerDrop operate :", op.String())
-			if room.curOperator != op.Operator {
-				return
+		case dropOp = <-room.dropCardCh :
+			log.Debug(room, "Room.waitPlayerDrop operate :", dropOp)
+			if room.curOperator != dropOp.Operator {
+				continue
 			}
-			if op.Op != PlayerOperateDrop {
-				return
+			room.dealPlayerOperate(dropOp)
+			return
+		}
+	}
+}
+
+//等待玩家碰牌
+func (room *Room) waitPlayerPeng(player *Player) (isTimeout bool){
+	log.Debug(room, "Room.waitPlayerPeng")
+	breakTimerTime := time.Duration(0)
+	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
+	for  {
+		timer := timeout - breakTimerTime
+		select {
+		case <- time.After(timer):
+			return true
+		case op := <-room.pengCardCh :
+			log.Debug(room, "Room.waitPlayerPeng operate :", op)
+			if room.curOperator != op.Operator {
+				continue
+			}
+			if op.Op != OperatePengCard {
+				continue
 			}
 			room.dealPlayerOperate(op)
+			return false
+		}
+	}
+
+	return false
+}
+
+func (room *Room) waitMasterChi() (isTimeout bool){
+	log.Debug(room, "Room.waitMasterChi")
+	breakTimerTime := time.Duration(0)
+	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
+	for  {
+		timer := timeout - breakTimerTime
+		select {
+		case <- time.After(timer):
+			return true
+		case op := <-room.masterChiCardCh :
+			log.Debug(room, "Room.waitMasterChi operate :", op)
+			if op.Operator != room.curOperator {
+				continue
+			}
+			room.dealPlayerOperate(op)
+			return false
+		}
+	}
+	return false
+}
+
+func (room *Room) waitMasterNextPlayerChi(){
+	log.Debug(room, "Room.waitMasterNextPlayerChi")
+	breakTimerTime := time.Duration(0)
+	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
+	for  {
+		timer := timeout - breakTimerTime
+		select {
+		case <- time.After(timer):
+			return
+		case op := <-room.masterNextPlayerChiCardCh:
+			log.Debug(room, "Room.waitMasterNextPlayerChi operate :", op)
+			if op.Operator != room.nextPlayer(room.curOperator) {
+				continue
+			}
+			room.dealPlayerOperate(op)
+			return
 		}
 	}
 }
 
 //取指定玩家的下一个玩家
 func (room *Room) nextPlayer(player *Player) *Player {
-	idx := 0
-	for i, p := range room.players {
-		if p == player {
-			idx = i
-			break
-		}
-	}
+	idx := player.idxOfRoom
 	if idx == len(room.players) - 1 {
 		log.Debug(room, "Room.nextPlayer :", room.players[0])
 		return room.players[0]
@@ -442,200 +407,248 @@ func (room *Room) nextPlayer(player *Player) *Player {
 	return room.players[idx+1]
 }
 
-//获取上一次操作的玩家
-func (room *Room) getPrevOperator() *Player {
-	return room.prevOperator
+//获取上一次出牌的玩家
+func (room *Room) getDropCardOperator() *Player {
+	return room.lastDropCardOperator
 }
 
 //处理玩家操作
-func (room *Room) dealPlayerOperate(op *PlayerOperate) {
-	log.Debug(room, "Room.dealPlayerOperate :", op.String())
+func (room *Room) dealPlayerOperate(op *Operate) bool{
+	log.Debug(room, "Room.dealPlayerOperate :", op)
 	switch op.Op {
-	case PlayerOperateDianPao :
-		if room.config.OnlyZiMo {
-			//只能自摸，则不允许非摸牌者胡
-			op.Notify <- false
-			return
-		}
-		if data, ok := op.Data.(*PlayerOperateDianPaoData); ok {
-			result := op.Operator.DianPao(data.Card)
-			log.Debug(room, "Room.dealPlayerOperate DianPao result :", result)
-			if result.IsHu {
-				room.lastHuPlayer = op.Operator
-				room.switchStatus(RoomStatusEndPlayGame)
-				op.Notify <- true
-				room.broadcastPlayerSuccessOperated(op)
-				return
-			}
-		}
-		op.Notify <- false
-		return
-
-	case PlayerOperateZiMo :
-		if op.Operator != room.curOperator {
-			op.Notify <- false
-			return
-		}
-		result := op.Operator.ZiMo()
-		log.Debug(room, "Room.dealPlayerOperate ZiMo result :", result)
-		if result.IsHu {
-			room.lastHuPlayer = op.Operator
-			room.switchStatus(RoomStatusEndPlayGame)
-			op.Notify <- true
-			room.broadcastPlayerSuccessOperated(op)
-			return
-		}
-		op.Notify <- false
-		return
-
-	case PlayerOperateDrop:
-		if op.Operator != room.curOperator {
-			op.Notify <- false
-			return
-		}
-		if data, ok := op.Data.(*PlayerOperateDropData); ok {
-			if op.Operator.Drop(data.Card) {//出牌
-				log.Debug(room, "Room.dealPlayerOperate Drop card :", data.Card.Name())
-				op.Notify <- true
-				room.broadcastPlayerSuccessOperated(op)
-				//出牌后等待其他玩家操作
-				room.waitOtherPlayerOperateAfterDrop()
-				return
-			}
-		}
-		op.Notify <- false
-		return
-
-	case PlayerOperateChi:
-		if !room.config.WithChi {
-			op.Notify <- false
-			return
-		}
-		nextPlayer := room.nextPlayer(room.curOperator)
-		if nextPlayer != op.Operator {
-			op.Notify <- false
-			return
-		}
-		//先加入等待队列，然后选一个优先级最高的操作来处理， todo
-		//room.otherPlayerOperate = append(room.otherPlayerOperate, op)
-		if chiData, ok := op.Data.(*PlayerOperateChiData); ok {
-			if op.Operator.Chi(chiData.Card, chiData.Group) {
-				log.Debug(room, "Room.dealPlayerOperate chi card :", chiData.Card.Name(), ", group :", chiData.Group)
-				//吃成功了，设定当前玩家为吃牌者，并等待他出牌
-				room.prevOperator = room.curOperator
-				room.curOperator = op.Operator
-				op.Notify <- true
-				room.broadcastPlayerSuccessOperated(op)
-				room.waitPlayerDrop()
-				return
-			}
-		}
-		op.Notify <- false
-		return
-
-	case PlayerOperatePeng:
-		if !room.config.WithPeng {
-			op.Notify <- false
-			return
-		}
-		if data, ok := op.Data.(*PlayerOperatePengData); ok {
-			if op.Operator.Peng(data.Card) {
-				//碰成功了，设定当前玩家为碰牌者，并等待他出牌
-				log.Debug(room, "Room.dealPlayerOperate peng :", data.Card.Name())
-				room.prevOperator = room.curOperator
-				room.curOperator = op.Operator
-				op.Notify <- true
-				room.broadcastPlayerSuccessOperated(op)
-				room.waitPlayerDrop()
-				return
-			}
-		}
-		op.Notify <- false
-		return
-
-	case PlayerOperateGang :
-		if !room.config.WithGang {
-			op.Notify <- false
-			return
-		}
-		if room.cardPool.GetCardNum() <= len(room.players) {//牌数少于人数，不允许杠牌了
-			op.Notify <- false
-			return
-		}
-		if data, ok := op.Data.(*PlayerOperateGangData); ok {
-			if op.Operator.Gang(data.Card, room.curOperator) {
-				room.curOperator.BeGangBy(op.Operator)//设定当前操作者被杠了
-
-				//杠成功了，设定当前玩家为杠牌者
-				log.Debug(room, "Room.dealPlayerOperate gang :", data.Card.Name())
-				room.prevOperator = room.curOperator
-				room.curOperator = op.Operator
-				op.Notify <- true
-				room.broadcastPlayerSuccessOperated(op)
-				return
-			}
-		}
-		op.Notify <- false
-		return
-
-	case PlayerOperateEnterRoom:
-		if data, ok := op.Data.(*PlayerOperateEnterRoomData); ok {
+	case OperateEnterRoom:
+		if _, ok := op.Data.(*OperateEnterRoomData); ok {
 			if room.addPlayer(op.Operator) { //	玩家进入成功
+				op.Operator.EnterRoom(room, len(room.players)-1)
 				log.Debug(room, "Room.dealPlayerOperate player enter :", op.Operator)
-				op.Notify <- true
-				data.Players = room.players
-				room.checkAllPlayerEnter()
+				op.ResultCh <- true
 				room.broadcastPlayerSuccessOperated(op)
-			} else {
-				op.Notify <- false //玩家进入失败
+				return true
 			}
-			return
 		}
 
-	case PlayerOperateLeaveRoom:
-		if data, ok := op.Data.(*PlayerOperateLeaveRoomData); ok {
+	case OperateLeaveRoom:
+		if _, ok := op.Data.(*OperateLeaveRoomData); ok {
 			log.Debug(room, "Room.dealPlayerOperate player leave :", op.Operator)
 			room.delPlayer(op.Operator)
-			op.Notify <- false
-			data.Players = room.players
+			op.Operator.LeaveRoom()
+			op.ResultCh <- true
 			room.broadcastPlayerSuccessOperated(op)
-			return
+			return true
 		}
+
+	case OperateDropCard:
+		if data, ok := op.Data.(*OperateDropCardData); ok {
+			if op.Operator.Drop(data.Card) { //出牌
+				log.Debug(room, "Room.dealPlayerOperate Drop card :", data.Card)
+				op.ResultCh <- true
+				room.broadcastPlayerSuccessOperated(op)
+				room.checkTestCard(data.Card, false)
+				return true
+			}
+		}
+
+	case OperateChiCard:
+		if data, ok := op.Data.(*OperateChiCardData); ok {
+			if op.Operator.Chi(data.Card, data.Group) {
+				log.Debug(room, "Room.dealPlayerOperate chi card :", data.Card, ", group :", data.Group)
+				//吃成功了，设定当前玩家为吃牌者，并等待他出牌
+				room.switchOperator(op.Operator)
+				op.ResultCh <- true
+				room.broadcastPlayerSuccessOperated(op)
+				room.waitPlayerDrop()
+				return true
+			}
+		}
+
+	case OperatePengCard:
+		if data, ok := op.Data.(*OperatePengCardData); ok {
+			if op.Operator.Peng(data.Card, room.lastDropCardOperator) {
+				//碰成功了，设定当前玩家为碰牌者，并等待他出牌
+				log.Debug(room, "Room.dealPlayerOperate peng :", data.Card)
+				room.switchOperator(op.Operator)
+				op.ResultCh <- true
+				room.broadcastPlayerSuccessOperated(op)
+				room.waitPlayerDrop()
+				return true
+			}
+		}
+
+	case OperateSaoCard:
+		if data, ok := op.Data.(*OperateSaoCardData); ok {
+			if op.Operator.Sao(data.Card) {
+				log.Debug(room, "Room.dealPlayerOperate gang :", data.Card)
+				op.ResultCh <- true
+				room.broadcastPlayerSuccessOperated(op)
+				return true
+			}
+		}
+
+	case OperatePaoCard:
+		if data, ok := op.Data.(*OperatePaoCardData); ok {
+			if op.Operator.Pao(data.Card, room.lastDropCardOperator) {
+				//跑成功了，设定当前玩家为跑牌者，并等待他出牌
+				log.Debug(room, "Room.dealPlayerOperate Pao :", data.Card)
+				room.switchOperator(op.Operator)
+				op.ResultCh <- true
+				room.broadcastPlayerSuccessOperated(op)
+				if op.Operator.GetPaoAndTiLongNum() < 2 {
+					room.waitPlayerDrop()
+				}
+				return true
+			}
+		}
+
+	case OperateTiLongCard :
+		if data, ok := op.Data.(*OperateSaoCardData); ok {
+			if op.Operator.TiLong(data.Card) {
+				log.Debug(room, "Room.dealPlayerOperate TiLong :", data.Card)
+				op.ResultCh <- true
+				room.broadcastPlayerSuccessOperated(op)
+				return true
+			}
+		}
+
+	case OperateHu :
+		if _, ok := op.Data.(*OperateHuData); ok {
+			room.broadcastPlayerSuccessOperated(op)
+			op.ResultCh <- true
+			return true
+		}
+
 	}
+
+
+	op.ResultCh <- false
+	return false
 }
 
-//计算圈风
-func (room *Room) computeQuanFeng() *QuanFeng{
-	if !room.config.WithQuanFeng {
-		log.Debug(room, "Room.computeQuanFeng", room.quanFeng)
-		return room.quanFeng
-	}
-
-	if room.lastHuPlayer == nil {//上一盘没有人胡, 圈风不变
-		log.Debug(room, "Room.computeQuanFeng", room.quanFeng)
-		return room.quanFeng
-	}
-
-	if room.lastHuPlayer == room.masterPlayer {//上一次胡牌的玩家是东家，圈风不变
-		log.Debug(room, "Room.computeQuanFeng", room.quanFeng)
-		return room.quanFeng
-	}
-
-	if room.masterPlayer != room.firstMasterPlayer {//没有回到起点，还是同一个圈风
-		log.Debug(room, "Room.computeQuanFeng", room.quanFeng)
-		return room.quanFeng
-	}
-
-	next := room.quanFeng.next()
-	log.Debug(room, "Room.computeQuanFeng", next)
-	return next
-}
-
-func (room *Room) broadcastPlayerSuccessOperated(op *PlayerOperate) {
-	log.Debug(room, "Room.broadcastPlayerSuccessOperated :", op.String())
+func (room *Room) broadcastPlayerSuccessOperated(op *Operate) {
+	log.Debug(room, "Room.broadcastPlayerSuccessOperated :", op)
 	for _, player := range room.players {
 		player.OnPlayerSuccessOperated(op)
 	}
+}
+
+func (room *Room) broadcastDispatchCard(card *card.Card) {
+	log.Debug(room, "Room.broadcastDispatchCard", card)
+	for _, player := range room.players {
+		player.OnDispatchCard(card)
+	}
+}
+
+func (room *Room) broadcastShowDispatchCard(card *card.Card)  {
+	log.Debug(room, "broadcastShowDispatchCard", card)
+	for _, player := range room.players {
+		player.ShowDispatchCard(card)
+	}
+}
+
+func (room *Room) checkTestCard(card *card.Card, isSystemDisptach bool)  {
+
+	//检查有没有人胡，有就自动胡了
+	results := make([]*TestCardResult, len(room.players))
+	tmpPlayer := room.curOperator
+	for {
+		idx := tmpPlayer.idxOfRoom
+		results[idx] =  tmpPlayer.TestCard(card, room.lastDropCardOperator)
+		if results[idx].CanHu {
+			room.switchStatus(RoomStatusEndPlayGame)
+			room.lastHuPlayer = room.curOperator
+			room.dealPlayerOperate(room.makeHuCardOperate())
+			return
+		}
+
+		tmpPlayer = room.nextPlayer(tmpPlayer)
+		if tmpPlayer == room.curOperator{
+			break
+		}
+	}
+
+	//没有人胡，检查提龙，跑, 扫
+	for idx, result := range results {
+		if result.CanTiLong {
+			op := room.makeTiLongOperate(room.players[idx], card)
+			room.dealPlayerOperate(op)
+			close(op.ResultCh)
+			return
+		}
+		if result.CanPao {
+			op := room.makePaoOperate(room.players[idx], card)
+			room.dealPlayerOperate(op)
+			close(op.ResultCh)
+			return
+		}
+		if result.CanSao{
+			op := room.makeSaoOperate(room.players[idx], card)
+			room.dealPlayerOperate(op)
+			close(op.ResultCh)
+			return
+		}
+	}
+
+	if isSystemDisptach {//如果是系统派发的牌，没有人胡，也没有跑，扫，提龙，把牌显示给其它所有玩家
+		room.broadcastShowDispatchCard(card)
+	}
+
+	//检查有没有人能碰
+	for idx, result := range results {
+		if result.CanPeng {
+			timeout := room.waitPlayerPeng(room.players[idx])
+			if !timeout {
+				return
+			}
+		}
+	}
+
+	//检查当前玩家吃牌
+	if len (results[room.curOperator.idxOfRoom].ChiGroup) > 0 {
+		waitTimeout := room.waitMasterChi()
+		if !waitTimeout {
+			return
+		}
+	}
+
+	nextPlayer := room.nextPlayer(room.curOperator)
+	if len(results[nextPlayer.idxOfRoom].ChiGroup) > 0 {
+		room.waitMasterNextPlayerChi()
+	}
+}
+
+func (room *Room) makeDropCardOperate(operator *Player, card *card.Card) *Operate {
+	data := &OperateDropCardData{
+		Card: card,
+	}
+	return NewOperateDropCard(operator, data)
+}
+
+func (room *Room) makeHuCardOperate() *Operate{
+	return NewOperateHu(
+		room.curOperator,
+		&OperateHuData{
+			HuPlayer: room.curOperator,
+			FromPlayer: room.lastDropCardOperator,
+			Desc: "",
+		},
+	)
+}
+
+func (room *Room) makeTiLongOperate(operator *Player, card *card.Card) *Operate {
+	return NewOperateTiLongCard(operator, &OperateTiLongCardData{Card:card})
+}
+
+func (room *Room) makePaoOperate(operator *Player, card *card.Card) *Operate {
+	return NewOperatePaoCard(operator, &OperatePaoCardData{Card:card})
+}
+
+func (room *Room) makeSaoOperate(operator *Player, card *card.Card) *Operate {
+	return NewOperateSaoCard(operator, &OperateSaoCardData{Card:card})
+}
+
+func (room *Room) switchOperator(player *Player) {
+	log.Debug(room, "switchOperator", room.curOperator, "=>", player)
+	room.prevOperator = room.curOperator
+	room.curOperator = player
 }
 
 func (room *Room) String() string {

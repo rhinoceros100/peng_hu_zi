@@ -9,7 +9,7 @@ type MsgType	int
 
 const  (
 	MsgGetInitCards	MsgType = iota + 1
-	MsgDispatchCard
+	MsgDispatchCard					//发牌
 	MsgDropCard
 	MsgChiCard
 	MsgPengCard
@@ -21,7 +21,42 @@ const  (
 	MsgLeaveRoom
 	MsgGameEnd
 	MsgRoomClosed
+	MsgShowDispatchCard			//显示发出去的牌
 )
+
+func (msgType MsgType) String() string {
+	switch msgType {
+	case MsgGetInitCards:
+		return "MsgGetInitCards"
+	case MsgDispatchCard:					//发牌
+		return "MsgDispatchCard"
+	case MsgDropCard:
+		return "MsgDropCard"
+	case MsgChiCard:
+		return "MsgChiCard"
+	case MsgPengCard:
+		return "MsgPengCard"
+	case MsgSaoCard:
+		return "MsgSaoCard"
+	case MsgPaoCard:
+		return "MsgPaoCard"
+	case MsgTiLongCard:
+		return "MsgTiLongCard"
+	case MsgHu:
+		return "MsgHu"
+	case MsgEnterRoom:
+		return "MsgEnterRoom"
+	case MsgLeaveRoom:
+		return "MsgEnterRoom"
+	case MsgGameEnd:
+		return "MsgGameEnd"
+	case MsgRoomClosed:
+		return "MsgRoomClosed"
+	case MsgShowDispatchCard:			//显示发出去的牌
+		return "MsgShowDispatchCard"
+	}
+	return "unknow MsgType"
+}
 
 type Message struct {
 	Type		MsgType
@@ -52,19 +87,26 @@ func NewGetInitCardsMsg(owner *Player, data *GetInitCardsMsgData) *Message {
 	return newMsg(MsgGetInitCards, owner, data)
 }
 
-
 //玩家获得牌的消息
 type DispatchCardMsgData struct {
-	Card *card.Card
 }
-
 func NewDispatchCardMsg(owner *Player, data *DispatchCardMsgData) *Message {
 	return newMsg(MsgDispatchCard, owner, data)
+}
+
+//显示系统发的牌的消息
+type ShowDispatchCardMsgData struct {
+	Card *card.Card
+}
+func NewShowDispatchCardMsg(owner *Player, data *ShowDispatchCardMsgData) *Message {
+	return newMsg(MsgShowDispatchCard, owner, data)
 }
 
 //玩家出牌的消息
 type DropCardMsgData struct {
 	Card *card.Card
+	CanPeng bool
+	ChiGroup []*card.Cards
 }
 func NewDropCardMsg(owner *Player, data *DropCardMsgData) *Message {
 	return newMsg(MsgDropCard, owner, data)
@@ -94,7 +136,6 @@ func NewPengCardMsg(owner *Player, data *PengCardMsgData) *Message {
 //玩家扫牌的消息
 type SaoCardMsgData struct {
 	SaoPlayer		*Player
-	FromPlayer		*Player
 	WhatCard		*card.Card
 }
 func NewSaoCardMsg(owner *Player, data *SaoCardMsgData) *Message {

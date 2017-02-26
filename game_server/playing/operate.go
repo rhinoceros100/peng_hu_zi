@@ -21,6 +21,30 @@ const (
 	OperateHu
 )
 
+func (operateType OperateType) String() string {
+	switch operateType {
+	case OperateEnterRoom :
+		return "OperateEnterRoom"
+	case OperateLeaveRoom:
+		return "OperateLeaveRoom"
+	case OperateDropCard:
+		return "OperateDropCard"
+	case OperateChiCard:
+		return "OperateChiCard"
+	case OperatePengCard:
+		return "OperatePengCard"
+	case OperateSaoCard:
+		return "OperateSaoCard"
+	case OperatePaoCard:
+		return "OperatePaoCard"
+	case OperateTiLongCard:
+		return "OperateTiLongCard"
+	case OperateHu:
+		return "OperateHu"
+	}
+	return "unknow OperateType"
+}
+
 type Operate struct {//玩家操作
 	Op			OperateType
 	Operator	*Player				//操作者
