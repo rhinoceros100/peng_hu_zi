@@ -80,7 +80,6 @@ func (player *Player) AddCard(card *card.Card) {
 	player.playingCards.AddCard(card)
 }
 
-
 /*	计算指定的牌可以吃牌的组合
 */
 func (player *Player) ComputeChiGroup(card *card.Card) []*card.Cards {
@@ -295,7 +294,7 @@ func (player *Player) OnRoomClosed() {
 }
 
 func (player *Player) OnGetInitCards() {
-	log.Debug(player, "OnGetInitCards")
+	log.Debug(player, "OnGetInitCards", player.playingCards)
 
 	data := &GetInitCardsMsgData{
 		PlayingCards: player.playingCards,
@@ -500,6 +499,18 @@ func (player *Player) onPlayerTiLong(op *Operate) {
 }
 //end player operate event handler
 
+func (player *Player) ComputeTiLong() {
+	player.playingCards.ComputeTiLong()
+}
+
+func (player *Player) ComputeSao() {
+	player.playingCards.ComputeSao()
+}
+
 func (player *Player) GetPaoAndTiLongNum() int{
 	return player.playingCards.GetPaoAndTiLongNum()
+}
+
+func (player *Player) GetPlayingCards() *card.PlayingCards {
+	return player.playingCards
 }

@@ -1,5 +1,9 @@
 package card
 
+import (
+	"fmt"
+)
+
 type PlayingCards struct {
 	CardsInHand			*Cards		//手上的牌
 	AlreadyChiCards            *Cards      //已经吃的牌, 3张牌都存
@@ -210,11 +214,23 @@ func (playingCards *PlayingCards) ComputeSao() {
 
 	for _, card := range playingCards.AlreadySaoCards.data {
 		for i := 0; i < 3; i ++ {
-			playingCards.CardsInHand.TakeWay(card)
+			cards.TakeWay(card)
 		}
 	}
 }
 
 func (playingCards *PlayingCards) GetPaoAndTiLongNum() int{
 	return playingCards.AlreadyPaoCards.Len() + playingCards.AlreadyTiLongCards.Len()
+}
+
+func (playingCards *PlayingCards) String() string{
+	return fmt.Sprintf(
+		"InHand={%v}, Chi={%v}, Peng={%v}, Sao={%v}, Pao={%v}, TiLong={%v}",
+		playingCards.CardsInHand,
+		playingCards.AlreadyChiCards,
+		playingCards.AlreadyPengCards,
+		playingCards.AlreadySaoCards,
+		playingCards.AlreadyPaoCards,
+		playingCards.AlreadyTiLongCards,
+	)
 }

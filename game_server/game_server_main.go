@@ -37,6 +37,7 @@ func help() {
 type PlayerObserver struct {}
 func (ob *PlayerObserver) OnMsg(player *playing.Player, msg *playing.Message) {
 	log.Debug(player, "receive msg", msg)
+	log.Debug(player, "playingcards :", player.GetPlayingCards())
 }
 
 func main() {
@@ -60,10 +61,11 @@ func main() {
 
 	for _, robot := range robots {
 		robot.OperateEnterRoom(room)
+		robot.AddObserver(&PlayerObserver{})
 	}
 
 	curPlayer := playing.NewPlayer(4)
-	//curPlayer.OperateEnterRoom(room)
+	curPlayer.AddObserver(&PlayerObserver{})
 
 	reader := bufio.NewReader(os.Stdin)
 	for running {
