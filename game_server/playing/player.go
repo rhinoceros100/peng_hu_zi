@@ -164,10 +164,11 @@ func (player *Player) OperateDropCard(card *card.Card) bool {
 }
 
 
-func (player *Player) OperateChiCard(whatCard *card.Card, whatGroup *card.Cards) bool {
-	log.Debug(player, "OperateChi, card :", whatCard, " group :", whatGroup)
+func (player *Player) OperateChiCard(whatGroup *card.Cards) bool {
+	card := player.room.lastDropCard
+	log.Debug(player, "OperateChi, card :", card, " group :", whatGroup)
 	data := &OperateChiCardData{
-		Card: whatCard,
+		Card: card,
 		Group: whatGroup,
 	}
 	op := NewOperateChiCard(player, data)
@@ -175,7 +176,9 @@ func (player *Player) OperateChiCard(whatCard *card.Card, whatGroup *card.Cards)
 	return player.waitResult(op.ResultCh)
 }
 
-func (player *Player) OperatePengCard(card *card.Card) bool {
+func (player *Player) OperatePengCard() bool {
+	card := player.room.lastDropCard
+	//player.room.lastDropCardOperator
 	log.Debug(player, "OperatePeng card :", card)
 	data := &OperatePengCardData{
 		Card: card,
@@ -185,7 +188,8 @@ func (player *Player) OperatePengCard(card *card.Card) bool {
 	return player.waitResult(op.ResultCh)
 }
 
-func (player *Player) OperateSaoCard(card *card.Card) bool {
+func (player *Player) OperateSaoCard() bool {
+	card := player.room.lastDropCard
 	log.Debug(player, "OperateSao card :", card)
 	data := &OperateSaoCardData{
 		Card: card,
@@ -195,7 +199,8 @@ func (player *Player) OperateSaoCard(card *card.Card) bool {
 	return player.waitResult(op.ResultCh)
 }
 
-func (player *Player) OperatePaoCard(card *card.Card) bool {
+func (player *Player) OperatePaoCard() bool {
+	card := player.room.lastDropCard
 	log.Debug(player, "OperatePaoCard", card)
 	data := &OperatePaoCardData{
 		Card: card,
@@ -205,7 +210,8 @@ func (player *Player) OperatePaoCard(card *card.Card) bool {
 	return player.waitResult(op.ResultCh)
 }
 
-func (player *Player) OperateTiLongCard(card *card.Card) bool {
+func (player *Player) OperateTiLongCard() bool {
+	card := player.room.lastDropCard
 	log.Debug(player, "OperateTiLongCard card :", card)
 	data := &OperateTiLongCardData{
 		Card: card,

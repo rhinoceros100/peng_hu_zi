@@ -303,10 +303,15 @@ func TestCards_ComputeChiGroup(t *testing.T) {
 		&Card{CardType:CardType_Big, CardNo:4},
 		&Card{CardType:CardType_Small, CardNo:4},
 		&Card{CardType:CardType_Big, CardNo:9},
+		&Card{CardType:CardType_Big, CardNo:8},
+		&Card{CardType:CardType_Big, CardNo:10},
 	)
 
 	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Big, CardNo:10},))
 	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Big, CardNo:3},))
 	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Big, CardNo:2},))
 	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Small, CardNo:9},))
+
+	t.Log(cards.computeChiGroup(&Card{CardType:CardType_Big, CardNo:9},))
 }
+

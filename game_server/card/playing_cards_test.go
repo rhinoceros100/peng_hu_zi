@@ -48,7 +48,6 @@ func TestPlayingCards_Chi(t *testing.T) {
 //	t.Log(playingCards.ToString())
 }
 
-
 func TestPlayingCards_Peng(t *testing.T) {
 	playingCards := NewPlayingCards()
 	playingCards.AddCard(&Card{CardType:CardType_Big, CardNo:1})
@@ -181,10 +180,10 @@ func TestPlayingCards_IsHu(t *testing.T) {
 	playingCards.ComputeSao()
 
 	whatCard := &Card{CardType:CardType_Small, CardNo:10}
-	result := playingCards.TestCard(whatCard)
+	result := playingCards.IsHuThisCard(whatCard)
 	t.Log(playingCards.CardsInHand, whatCard)
 	t.Log(result)
-	assert.Equal(t, result.CanHu, true)
+	assert.Equal(t, result, true)
 }
 
 func TestPlayingCards_IsHu2(t *testing.T) {
@@ -214,10 +213,10 @@ func TestPlayingCards_IsHu2(t *testing.T) {
 	playingCards.ComputeSao()
 
 	whatCard := &Card{CardType:CardType_Small, CardNo:7}
-	result := playingCards.TestCard(whatCard)
+	result := playingCards.IsHuThisCard(whatCard)
 	t.Log(playingCards.CardsInHand, whatCard)
 	t.Log(result)
-	assert.Equal(t, result.CanHu, true)
+	assert.Equal(t, result, true)
 }
 
 func TestPlayingCards_TestCard(t *testing.T) {
@@ -247,10 +246,10 @@ func TestPlayingCards_TestCard(t *testing.T) {
 	playingCards.ComputeSao()
 
 	whatCard := &Card{CardType:CardType_Small, CardNo:7}
-	result := playingCards.TestCard(whatCard)
+	result := playingCards.IsHuThisCard(whatCard)
 	t.Log(playingCards.CardsInHand, whatCard)
 	t.Log(result)
-	assert.Equal(t, result.CanHu, true)
+	assert.Equal(t, result, true)
 	assert.Equal(t, playingCards.AlreadyTiLongCards.Len(), 1)
 	assert.Equal(t, playingCards.AlreadySaoCards.Len(), 1)
 }

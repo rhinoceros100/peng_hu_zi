@@ -54,6 +54,7 @@ type Room struct {
 	curOperator	*Player				//获得当前操作的玩家，可能是碰牌，跑牌，吃牌，等他出牌
 	prevOperator *Player			//上一个操作的玩家
 	lastDropCardOperator *Player	//最后一个出牌的人，可能是系统，可能是玩家，系统发牌时，该值为nil
+	lastDropCard *card.Card
 	//end playingGameData, reset when start playing game
 
 	roomOperateCh				chan *Operate
@@ -174,21 +175,27 @@ func (room *Room) startPlayGame()  {
 	room.prevOperator = nil
 	room.lastDropCardOperator = nil
 
+	room.lastDropCard = nil
+
 	//发初始牌给所有玩家
 	room.putInitCardsToPlayers()
 
 	//通知所有玩家手上的牌
 	for _, player := range room.players {
 		player.OnGetInitCards()
-
-		//todo notify to other
-		player.ComputeTiLong()
-		player.ComputeSao()
 	}
 
 	//todo
 	//检查天胡
 	//计算所有玩家的提扫
+
+	for _, player := range room.players {
+		//todo notify to other
+		player.ComputeTiLong()
+		player.ComputeSao()
+
+		player.OnGetInitCards()
+	}
 
 	room.switchStatus(RoomStatusPlayGame)
 
@@ -197,7 +204,8 @@ func (room *Room) startPlayGame()  {
 
 func (room *Room) playGame() {
 	// 发牌给玩家
-	card := room.cardPool.PopFront()
+	card := room.dispatchCard()
+
 	log.Debug(room, "Room.playGame put card[ ", card, "]to", room.curOperator)
 	if card == nil {//没有牌了，该局结束，流局
 		room.switchStatus(RoomStatusEndPlayGame)
@@ -307,26 +315,23 @@ func (room *Room) waitPlayerDrop() {
 			dropCard := room.curOperator.GetTailCard()
 			dropOp = room.makeDropCardOperate(room.curOperator, dropCard)
 			log.Debug(room, "Room.waitPlayerDrop ", room.curOperator, "auto drop", dropCard, " op :", dropOp)
-			if room.dealPlayerOperate(dropOp) {                                        
-				room.switchOperator(room.nextPlayer(room.curOperator))
-			}
-			return 
+			room.dealPlayerOperate(dropOp)
+			return
 		case dropOp = <-room.dropCardCh :
 			log.Debug(room, "Room.waitPlayerDrop operate :", dropOp)
 			if room.curOperator != dropOp.Operator {
 				continue
 			}
-			if room.dealPlayerOperate(dropOp) {
-				room.switchOperator(room.nextPlayer(room.curOperator))
-				return
-			}
+			room.dealPlayerOperate(dropOp)
+			return
+
 		}
 	}
 }
 
 //等待玩家碰牌
 func (room *Room) waitPlayerPeng(player *Player) (isTimeout bool){
-	log.Debug(room, "Room.waitPlayerPeng")
+	log.Debug(room, "Room.waitPlayerPeng", player)
 	breakTimerTime := time.Duration(0)
 	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
 	for  {
@@ -336,9 +341,6 @@ func (room *Room) waitPlayerPeng(player *Player) (isTimeout bool){
 			return true
 		case op := <-room.pengCardCh :
 			log.Debug(room, "Room.waitPlayerPeng operate :", op)
-			if room.curOperator != op.Operator {
-				continue
-			}
 			if op.Op != OperatePengCard {
 				continue
 			}
@@ -351,7 +353,7 @@ func (room *Room) waitPlayerPeng(player *Player) (isTimeout bool){
 }
 
 func (room *Room) waitOperatorChi() (isTimeout bool){
-	log.Debug(room, "Room.waitOperatorChi")
+	log.Debug(room, "Room.waitOperatorChi", room.curOperator)
 	breakTimerTime := time.Duration(0)
 	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
 	for  {
@@ -372,7 +374,7 @@ func (room *Room) waitOperatorChi() (isTimeout bool){
 }
 
 func (room *Room) waitOperatorNextPlayerChi(){
-	log.Debug(room, "Room.waitOperatorNextPlayerChi")
+	log.Debug(room, "Room.waitOperatorNextPlayerChi", room.nextPlayer(room.curOperator))
 	breakTimerTime := time.Duration(0)
 	timeout := time.Duration(room.config.WaitPlayerOperateTimeout) * time.Second
 	for  {
@@ -395,10 +397,10 @@ func (room *Room) waitOperatorNextPlayerChi(){
 func (room *Room) nextPlayer(player *Player) *Player {
 	idx := player.idxOfRoom
 	if idx == len(room.players) - 1 {
-		log.Debug(room, player, "Room.nextPlayer :", room.players[0])
+		//log.Debug(room, player, "Room.nextPlayer :", room.players[0])
 		return room.players[0]
 	}
-	log.Debug(room, player, "Room.nextPlayer :", room.players[idx+1])
+	//log.Debug(room, player, "Room.nextPlayer :", room.players[idx+1])
 	return room.players[idx+1]
 }
 
@@ -435,6 +437,7 @@ func (room *Room) dealPlayerOperate(op *Operate) bool{
 	case OperateDropCard:
 		if data, ok := op.Data.(*OperateDropCardData); ok {
 			if op.Operator.Drop(data.Card) { //出牌
+				room.lastDropCard = data.Card
 				log.Debug(room, "Room.dealPlayerOperate Drop card :", data.Card)
 				op.ResultCh <- true
 				room.broadcastPlayerSuccessOperated(op)
@@ -518,7 +521,6 @@ func (room *Room) dealPlayerOperate(op *Operate) bool{
 
 	}
 
-
 	op.ResultCh <- false
 	return false
 }
@@ -599,8 +601,8 @@ func (room *Room) checkTestCard(card *card.Card, isSystemDisptach bool)  {
 		}
 	}
 
-	//检查当前玩家吃牌
-	if len (results[room.curOperator.idxOfRoom].ChiGroup) > 0 {
+	//如果是系统发牌时，检查当前玩家吃牌
+	if len (results[room.curOperator.idxOfRoom].ChiGroup) > 0 && isSystemDisptach {
 		waitTimeout := room.waitOperatorChi()
 		if !waitTimeout {
 			return
@@ -611,6 +613,8 @@ func (room *Room) checkTestCard(card *card.Card, isSystemDisptach bool)  {
 	if len(results[nextPlayer.idxOfRoom].ChiGroup) > 0 {
 		room.waitOperatorNextPlayerChi()
 	}
+
+	room.switchOperator(room.nextPlayer(room.curOperator))
 }
 
 func (room *Room) makeDropCardOperate(operator *Player, card *card.Card) *Operate {
@@ -647,6 +651,13 @@ func (room *Room) switchOperator(player *Player) {
 	log.Debug(room, "switchOperator", room.curOperator, "=>", player)
 	room.prevOperator = room.curOperator
 	room.curOperator = player
+}
+
+func (room *Room) dispatchCard() *card.Card {
+	card := room.cardPool.PopFront()
+	room.lastDropCard = card
+	room.lastDropCardOperator = nil
+	return card
 }
 
 func (room *Room) String() string {

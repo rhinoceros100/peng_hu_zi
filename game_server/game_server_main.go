@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"peng_hu_zi/game_server/playing"
 	"peng_hu_zi/util"
+	"peng_hu_zi/game_server/card"
+	"strings"
 )
 
 func help() {
@@ -22,11 +24,13 @@ func help() {
 	OperateTiLongCard
 	OperateHu
 	 */
-	log.Debug("help info")
+	log.Debug("h")
+	log.Debug("exit")
+	log.Debug("mycards")
 	log.Debug(playing.OperateEnterRoom, int(playing.OperateEnterRoom))
 	log.Debug(playing.OperateLeaveRoom, int(playing.OperateLeaveRoom))
-	log.Debug(playing.OperateDropCard, int(playing.OperateDropCard))
-	log.Debug(playing.OperateChiCard, int(playing.OperateChiCard))
+	log.Debug(playing.OperateDropCard, int(playing.OperateDropCard), "1(small) 7(cardno)")
+	log.Debug(playing.OperateChiCard, int(playing.OperateChiCard), "1(small) 2(cardno_1) (cardno_2)")
 	log.Debug(playing.OperatePengCard, int(playing.OperatePengCard))
 	//log.Debug(playing.OperateSaoCard, " : OperateSaoCard")
 	//log.Debug(playing.OperatePaoCard, " : OperatePaoCard")
@@ -75,17 +79,31 @@ func main() {
 			help()
 		} else if cmd == "exit" {
 			return
+		} else if cmd == "mycards" {
+			log.Debug(curPlayer.GetPlayingCards())
 		}
-		c, _ := strconv.Atoi(cmd)
+		splits := strings.Split(cmd, " ")
+		c, _ := strconv.Atoi(splits[0])
 		switch playing.OperateType(c) {
 		case playing.OperateEnterRoom:
 			curPlayer.OperateEnterRoom(room)
 		case playing.OperateLeaveRoom:
 			curPlayer.OperateLeaveRoom()
 		case playing.OperateDropCard:
-			//curPlayer.OperateDropCard()
+			card := &card.Card{}
+			card.CardType, _ = strconv.Atoi(splits[1])
+			card.CardNo, _ = strconv.Atoi(splits[2])
+			curPlayer.OperateDropCard(card)
 		case playing.OperateChiCard:
+			card1 := &card.Card{}
+			card1.CardType, _ = strconv.Atoi(splits[1])
+			card1.CardNo, _ = strconv.Atoi(splits[2])
+			card2 := &card.Card{CardType:card1.CardType}
+			card2.CardNo, _ = strconv.Atoi(splits[3])
+			cards := card.NewCards(card1, card2)
+			curPlayer.OperateChiCard(cards)
 		case playing.OperatePengCard:
+			curPlayer.OperatePengCard()
 		}
 	}
 }

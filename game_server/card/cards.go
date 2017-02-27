@@ -3,6 +3,7 @@ package card
 import (
 	"peng_hu_zi/util"
 	"sort"
+	"peng_hu_zi/log"
 )
 
 type SortType int
@@ -247,7 +248,9 @@ func (cards *Cards) isOkWithoutJiang() bool {
 
 //检查是否能吃
 func (cards *Cards) canChi(whatCard *Card, whatGroup *Cards) bool {
+	log.Debug(cards, "canChi", whatCard, whatGroup)
 	groups := cards.computeChiGroup(whatCard)
+	log.Debug(cards, "canChi", whatCard, whatGroup, ",ok groups :", groups)
 	for _, group := range groups {
 		if group.SameAs(whatGroup) {
 			return true

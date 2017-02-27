@@ -59,7 +59,7 @@ func (card *Card) Next() *Card {
 	if card == nil {
 		return nil
 	}
-	if card.CardNo == 9 {
+	if card.CardNo == 10 {
 		return nil
 	}
 	return &Card{
