@@ -19,6 +19,8 @@ const (
 	OperateTiLongCard
 
 	OperateHu
+
+	OperateGuo
 )
 
 func (operateType OperateType) String() string {
@@ -41,6 +43,8 @@ func (operateType OperateType) String() string {
 		return "OperateTiLongCard"
 	case OperateHu:
 		return "OperateHu"
+	case OperateGuo:
+		return "OperateGuo"
 	}
 	return "unknow OperateType"
 }
@@ -124,7 +128,6 @@ func NewOperateTiLongCard(operator *Player, data *OperateTiLongCardData) *Operat
 	return newOperate(OperateTiLongCard, operator, data)
 }
 
-
 type OperateHuData struct {
 	HuPlayer		*Player			// 胡牌的玩家
 	FromPlayer		*Player			// 牌来源于哪个玩家
@@ -133,4 +136,10 @@ type OperateHuData struct {
 }
 func NewOperateHu(operator *Player, data *OperateHuData) *Operate {
 	return newOperate(OperateHu, operator, data)
+}
+
+type OperateGuoData struct {
+}
+func NewOperateGuo(operator *Player, data *OperateGuoData) *Operate {
+	return newOperate(OperateGuo, operator, data)
 }

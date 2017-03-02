@@ -123,6 +123,8 @@ func Is6CardsOk(cards ...*Card) bool {
 		IsABC(cards[0], cards[4], cards[5]){
 		return true
 	}
+
+	//TODO 一二二三三四
 	return false
 }
 

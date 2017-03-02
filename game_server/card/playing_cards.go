@@ -158,7 +158,7 @@ func (playingCards *PlayingCards) CanPao(whatCard *Card) bool {
 
 //检查是否能提龙
 func (playingCards *PlayingCards) CanTiLong(whatCard *Card) bool {
-	return playingCards.CardsInHand.canTiLong(whatCard)
+	return playingCards.CardsInHand.canTiLong(whatCard) || playingCards.AlreadySaoCards.hasCard(whatCard)
 }
 
 func (playingCards *PlayingCards) IsHu() bool {
