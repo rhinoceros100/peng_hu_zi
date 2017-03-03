@@ -1,7 +1,5 @@
 package card
 
-import "mahjong/game_server/log"
-
 //判断是否两个相同的牌: 包括AA和aa
 func IsAA(card1, card2 *Card) bool {
 	return card1.SameAs(card2)
@@ -330,44 +328,6 @@ func Is14CardsOk(cards ...*Card) bool {
 	// 12 + 2
 	if Is12CardsOk(cards[0:12]...) && Is2CardsOk(cards[12:14]...) {
 		return true
-	}
-	return false
-}
-
-func IsCardsOk(cards ...*Card) bool {
-	length := len(cards)
-	if length == 2 {
-		log.Debug("IsCardsOk length==2:", cards)
-		return Is2CardsOk(cards...)
-	}
-
-	if length == 3 {
-		log.Debug("IsCardsOk length==3:", cards)
-		return Is3CardsOk(cards...)
-	}
-
-	other := make([]*Card, 0)
-	for i:=0; i<length; i++ {
-		for j:=i+1; j<length; j++{
-			for k:=j+1; k<length; k++ {
-				log.Debug("IsCardsOk Is3CardsOk :[", i, j, k, "]" , cards[i], cards[j], cards[k])
-				if !Is3CardsOk(cards[i], cards[j], cards[k]) {
-					continue
-				}
-
-				other = other[0:0]
-				for l:=0; l<length; l++ {
-					if l == i || l == j || l == k {
-						continue
-					}
-					other = append(other, cards[l])
-				}
-				log.Debug("IsCardsOk other :", other)
-				if IsCardsOk(other...) {
-					return true
-				}
-			}
-		}
 	}
 	return false
 }

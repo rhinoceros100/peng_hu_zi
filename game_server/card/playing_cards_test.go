@@ -3,6 +3,7 @@ package card
 import (
 	"testing"
 	"github.com/bmizerany/assert"
+	"time"
 )
 
 func TestPlayingCards_Chi(t *testing.T) {
@@ -252,4 +253,53 @@ func TestPlayingCards_TestCard(t *testing.T) {
 	assert.Equal(t, result, true)
 	assert.Equal(t, playingCards.AlreadyTiLongCards.Len(), 1)
 	assert.Equal(t, playingCards.AlreadySaoCards.Len(), 1)
+}
+
+func TestNewPlayingCardsIsOk(t *testing.T) {
+	start := time.Now()
+	hu15 := &Cards{
+		data: []*Card{
+			&Card{CardType:CardType_Big, CardNo:1},
+
+			&Card{CardType:CardType_Big, CardNo:2},
+			&Card{CardType:CardType_Big, CardNo:2},
+
+			&Card{CardType:CardType_Small, CardNo:2},
+			&Card{CardType:CardType_Small, CardNo:2},
+
+			&Card{CardType:CardType_Big, CardNo:3},
+
+			&Card{CardType:CardType_Big, CardNo:3},
+			&Card{CardType:CardType_Small, CardNo:3},
+			&Card{CardType:CardType_Small, CardNo:3},
+
+			&Card{CardType:CardType_Big, CardNo:6},
+			&Card{CardType:CardType_Big, CardNo:7},
+			&Card{CardType:CardType_Big, CardNo:8},
+
+			&Card{CardType:CardType_Big, CardNo:4},
+			&Card{CardType:CardType_Big, CardNo:4},
+			&Card{CardType:CardType_Small, CardNo:4},
+
+		},
+	}
+
+	playingCards := NewPlayingCards()
+	playingCards.AddCards(hu15)
+
+	/*
+	hu1 := playingCards.IsCardsOk(hu15.data...)
+	hu2 := playingCards.IsCardsOk(hu15.data...)
+	hu3 := playingCards.IsCardsOk(hu15.data...)
+	hu4 := playingCards.IsCardsOk(hu15.data...)
+	*/
+	hu1 := playingCards.IsHu()
+	hu2 := playingCards.IsHu()
+	hu3 := playingCards.IsHu()
+	hu4 := playingCards.IsHu()
+	assert.Equal(t, hu1, true)
+	assert.Equal(t, hu2, true)
+	assert.Equal(t, hu3, true)
+	assert.Equal(t, hu4, true)
+	t.Log(time.Now().Sub(start))
 }
