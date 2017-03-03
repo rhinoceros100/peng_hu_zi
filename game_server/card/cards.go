@@ -196,56 +196,6 @@ func (cards *Cards) SameAs(other *Cards) bool {
 	return true
 }
 
-func (cards *Cards) IsOkWithJiang() bool  {
-	if !cards.isOkWithJiang() {
-		cards.Sort(BIG_CARD_IN_FRONT)
-		return cards.isOkWithJiang()
-	}
-	return true
-}
-
-func (cards *Cards) IsOkWithoutJiang() bool  {
-	if !cards.isOkWithoutJiang() {
-		cards.Sort(BIG_CARD_IN_FRONT)
-		return cards.isOkWithoutJiang()
-	}
-	return true
-}
-
-//带将的情况下是否OK
-func (cards *Cards) isOkWithJiang() bool {
-	switch cards.Len() {
-	case 2:
-		return Is2CardsOk(cards.data...)
-	case 5:
-		return Is5CardsOk(cards.data...)
-	case 8:
-		return Is8CardsOk(cards.data...)
-	case 11:
-		return Is11CardsOk(cards.data...)
-	case 14:
-		return Is14CardsOk(cards.data...)
-	}
-	return false
-}
-
-//不带将的情况下是否OK
-func (cards *Cards) isOkWithoutJiang() bool {
-	switch cards.Len() {
-	case 3:
-		return Is3CardsOk(cards.data...)
-	case 6:
-		return Is6CardsOk(cards.data...)
-	case 9:
-		return Is9CardsOk(cards.data...)
-	case 12:
-		return Is12CardsOk(cards.data...)
-	case 15:
-		return Is15CardsOk(cards.data...)
-	}
-	return false
-}
-
 //检查是否能吃
 func (cards *Cards) canChi(whatCard *Card, whatGroup *Cards) bool {
 	log.Debug(cards, "canChi", whatCard, whatGroup)
