@@ -221,6 +221,14 @@ func (player *Player) OperateTiLongCard() bool {
 	return player.waitResult(op.ResultCh)
 }
 
+func (player *Player) OperateGuo() bool {
+	log.Debug(player, "OperateGuo")
+	data := &OperateGuoData{}
+	op := NewOperateGuo(player, data)
+	player.room.PlayerOperate(op)
+	return player.waitResult(op.ResultCh)
+}
+
 //end try operate
 
 func (player *Player) EnterRoom(room *Room, idxOfRoom int) {

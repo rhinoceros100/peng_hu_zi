@@ -123,12 +123,7 @@ func Is6CardsOk(cards ...*Card) bool {
 	if IsAAaa(cards[1], cards[2], cards[3], cards[4]) &&
 		IsABC(cards[0], cards[4], cards[5]){
 		return true
-	}
-	//一二二三三四  :013 245
-	//一二贰三叁肆 :013 245
-	//一贰二叁三肆 :025 134
-	//壹贰二叁三四 ：013 245
-	return false
+	}	return false
 }
 
 //9张牌是否OK

@@ -11,6 +11,8 @@ type PlayingCards struct {
 	AlreadySaoCards			*Cards		//已经扫的牌，只存已扫牌的其中一张
 	AlreadyPaoCards			*Cards		//已经跑的牌，只存已跑牌的其中一张
 	AlreadyTiLongCards         *Cards      //已经提龙的拍，只存已提龙牌的其中一张
+
+	otherForCheckHu []*Card
 }
 
 func NewPlayingCards() *PlayingCards {
@@ -21,6 +23,7 @@ func NewPlayingCards() *PlayingCards {
 		AlreadySaoCards: NewCards(),
 		AlreadyPaoCards: NewCards(),
 		AlreadyTiLongCards: NewCards(),
+		otherForCheckHu: make([]*Card, 0),
 	}
 }
 
@@ -159,10 +162,12 @@ func (playingCards *PlayingCards) CanPao(whatCard *Card) bool {
 
 //检查是否能提龙
 func (playingCards *PlayingCards) CanTiLong(whatCard *Card) bool {
-	return playingCards.CardsInHand.canTiLong(whatCard)
+	return playingCards.CardsInHand.canTiLong(whatCard) || playingCards.AlreadySaoCards.hasCard(whatCard)
 }
 
 func (playingCards *PlayingCards) IsHu() bool {
+	return playingCards.IsCardsOk(playingCards.CardsInHand.data...)
+	/*
 	paoAndTLCnt := playingCards.GetPaoAndTiLongNum()
 	if paoAndTLCnt >= 2 {
 		ok := playingCards.CardsInHand.IsOkWithJiang()
@@ -171,11 +176,13 @@ func (playingCards *PlayingCards) IsHu() bool {
 		}
 	}
 	return false
+	*/
 }
 
 func (playingCards *PlayingCards) IsHuThisCard(whatCard *Card) bool {
 	playingCards.CardsInHand.AddAndSort(whatCard)
-	ok := playingCards.CardsInHand.IsOkWithoutJiang()
+	//ok := playingCards.CardsInHand.IsOkWithoutJiang()
+	ok := playingCards.IsHu()
 	playingCards.CardsInHand.TakeWay(whatCard)
 	return ok
 }
@@ -234,4 +241,42 @@ func (playingCards *PlayingCards) String() string{
 		playingCards.AlreadyPaoCards,
 		playingCards.AlreadyTiLongCards,
 	)
+}
+
+
+func (playingCards *PlayingCards) IsCardsOk(cards ...*Card) bool {
+	length := len(cards)
+	if length == 2 {
+		//log.Debug("IsCardsOk length==2:", cards)
+		return Is2CardsOk(cards...)
+	}
+
+	if length == 3 {
+		//log.Debug("IsCardsOk length==3:", cards)
+		return Is3CardsOk(cards...)
+	}
+
+	for i:=0; i<length; i++ {
+		for j:=i+1; j<length; j++{
+			for k:=j+1; k<length; k++ {
+				//log.Debug("IsCardsOk Is3CardsOk :[", i, j, k, "]" , cards[i], cards[j], cards[k])
+				if !Is3CardsOk(cards[i], cards[j], cards[k]) {
+					continue
+				}
+
+				playingCards.otherForCheckHu = playingCards.otherForCheckHu[0:0]
+				for l:=0; l<length; l++ {
+					if l == i || l == j || l == k {
+						continue
+					}
+					playingCards.otherForCheckHu = append(playingCards.otherForCheckHu, cards[l])
+				}
+				//log.Debug("IsCardsOk otherForCheckHu :", playingCards.otherForCheckHu)
+				if playingCards.IsCardsOk(playingCards.otherForCheckHu...) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
