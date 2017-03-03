@@ -33,6 +33,7 @@ func (playingCards *PlayingCards) Reset() {
 	playingCards.AlreadySaoCards.Clear()
 	playingCards.AlreadyPaoCards.Clear()
 	playingCards.AlreadyTiLongCards.Clear()
+	playingCards.AlreadyChiCards.Clear()
 }
 
 func (playingCards *PlayingCards) AddCards(cards *Cards) {

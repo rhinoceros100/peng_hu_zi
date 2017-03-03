@@ -98,6 +98,7 @@ func Is3CardsOk(cards ...*Card) bool {
 }
 
 //6张牌是否OK, 3连对/Is3CardsOk * 2/A + BBBB + C
+//TODO
 func Is6CardsOk(cards ...*Card) bool {
 	if len(cards) != 6 {
 		return false
@@ -123,8 +124,6 @@ func Is6CardsOk(cards ...*Card) bool {
 		IsABC(cards[0], cards[4], cards[5]){
 		return true
 	}
-
-	//TODO 一二二三三四
 	return false
 }
 
@@ -175,6 +174,8 @@ func Is12CardsOk(cards ...*Card) bool {
 	return false
 }
 
+//TODO 两个提龙，七对
+//TODO 天胡和普通胡牌分开
 func Is15CardsOk(cards ...*Card) bool {
 	if len(cards) != 15 {
 		return false
@@ -230,8 +231,8 @@ func Is5CardsOk(cards ...*Card) bool {
 		return true
 	}
 
-	//A + BBb + C
-	if IsAAa(cards[1], cards[2], cards[3]) &&
+	//A + Bbb + C 1
+	if Is2CardsOk(cards[2], cards[3]) &&
 		Is3CardsOk(cards[0], cards[1], cards[4]){
 		return true
 	}
@@ -240,6 +241,7 @@ func Is5CardsOk(cards ...*Card) bool {
 }
 
 //胡8张牌
+//TODO
 func Is8CardsOk(cards ...*Card) bool {
 	if len(cards) != 8 {
 		return false
@@ -265,6 +267,7 @@ func Is8CardsOk(cards ...*Card) bool {
 }
 
 //胡11张牌
+//TODO
 func Is11CardsOk(cards ...*Card) bool {
 	if len(cards) != 11 {
 		return false
@@ -297,6 +300,7 @@ func Is11CardsOk(cards ...*Card) bool {
 }
 
 //胡14张牌
+//TODO 小七对，双龙
 func Is14CardsOk(cards ...*Card) bool {
 	if len(cards)!= 14 {
 		return false
