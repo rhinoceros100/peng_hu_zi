@@ -165,23 +165,21 @@ func (playingCards *PlayingCards) CanTiLong(whatCard *Card) bool {
 	return playingCards.CardsInHand.canTiLong(whatCard) || playingCards.AlreadySaoCards.hasCard(whatCard)
 }
 
-func (playingCards *PlayingCards) IsHu() bool {
-	return playingCards.IsCardsOk(playingCards.CardsInHand.data...)
-	/*
-	paoAndTLCnt := playingCards.GetPaoAndTiLongNum()
-	if paoAndTLCnt >= 2 {
-		ok := playingCards.CardsInHand.IsOkWithJiang()
-		if ok {
-			return true
-		}
+func (playingCards *PlayingCards) IsTianHu() bool {
+	if playingCards.CardsInHand.Len() == 14 {
+		return playingCards.Is7Dui(playingCards.CardsInHand.data...)
+	} else if playingCards.CardsInHand.Len() == 15 {
+		return playingCards.IsHu()
 	}
 	return false
-	*/
+}
+
+func (playingCards *PlayingCards) IsHu() bool {
+	return playingCards.IsCardsOk(playingCards.CardsInHand.data...)
 }
 
 func (playingCards *PlayingCards) IsHuThisCard(whatCard *Card) bool {
 	playingCards.CardsInHand.AddAndSort(whatCard)
-	//ok := playingCards.CardsInHand.IsOkWithoutJiang()
 	ok := playingCards.IsHu()
 	playingCards.CardsInHand.TakeWay(whatCard)
 	return ok
@@ -231,6 +229,10 @@ func (playingCards *PlayingCards) GetPaoAndTiLongNum() int{
 	return playingCards.AlreadyPaoCards.Len() + playingCards.AlreadyTiLongCards.Len()
 }
 
+func (playingCards *PlayingCards) GetTiLongNum() int {
+	return playingCards.AlreadyTiLongCards.Len()
+}
+
 func (playingCards *PlayingCards) String() string{
 	return fmt.Sprintf(
 		"InHand={%v}, Chi={%v}, Peng={%v}, Sao={%v}, Pao={%v}, TiLong={%v}",
@@ -275,6 +277,34 @@ func (playingCards *PlayingCards) IsCardsOk(cards ...*Card) bool {
 				if playingCards.IsCardsOk(playingCards.otherForCheckHu...) {
 					return true
 				}
+			}
+		}
+	}
+	return false
+}
+
+func (playingCards *PlayingCards) Is7Dui(cards ...*Card) bool {
+	length := len(cards)
+	if length == 2 {
+		return Is2CardsOk(cards[0], cards[1])
+	}
+
+	for i:=0; i<length; i++ {
+		for j:=i+1; j<length; j++{
+			if !Is2CardsOk(cards[i], cards[j]) {
+				continue
+			}
+
+			playingCards.otherForCheckHu = playingCards.otherForCheckHu[0:0]
+			for l:=0; l<length; l++ {
+				if l == i || l == j {
+					continue
+				}
+				playingCards.otherForCheckHu = append(playingCards.otherForCheckHu, cards[l])
+			}
+			//log.Debug("IsCardsOk otherForCheckHu :", playingCards.otherForCheckHu)
+			if playingCards.Is7Dui(playingCards.otherForCheckHu...) {
+				return true
 			}
 		}
 	}

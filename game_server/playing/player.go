@@ -287,8 +287,11 @@ func (player *Player) TiLong(card *card.Card) bool {
 }
 
 func (player *Player) IsHu() bool {
-	player.playingCards.IsHu()
-	return false
+	return player.playingCards.IsHu()
+}
+
+func (player *Player) IsTianHu() bool {
+	return player.playingCards.IsTianHu()
 }
 
 func (player *Player) OnEndPlayGame() {
@@ -365,6 +368,7 @@ func (player *Player) GetRoom() *Room {
 func (player *Player) waitResult(resultCh chan bool) bool{
 	select {
 	case <- time.After(time.Second * 10):
+		close(resultCh)
 		log.Debug(player, "Player.waitResult timeout")
 		return false
 	case result := <- resultCh:
@@ -523,6 +527,10 @@ func (player *Player) ComputeSao() {
 
 func (player *Player) GetPaoAndTiLongNum() int{
 	return player.playingCards.GetPaoAndTiLongNum()
+}
+
+func (player *Player) GetTiLongNum() int {
+	return player.playingCards.GetTiLongNum()
 }
 
 func (player *Player) GetPlayingCards() *card.PlayingCards {

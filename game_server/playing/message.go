@@ -10,6 +10,7 @@ type MsgType	int
 const  (
 	MsgGetInitCards	MsgType = iota + 1
 	MsgDispatchCard					//发牌
+	MsgShowDispatchCard			//显示发出去的牌
 	MsgDropCard
 	MsgChiCard
 	MsgPengCard
@@ -21,7 +22,6 @@ const  (
 	MsgLeaveRoom
 	MsgGameEnd
 	MsgRoomClosed
-	MsgShowDispatchCard			//显示发出去的牌
 )
 
 func (msgType MsgType) String() string {
@@ -30,6 +30,8 @@ func (msgType MsgType) String() string {
 		return "MsgGetInitCards"
 	case MsgDispatchCard:					//发牌
 		return "MsgDispatchCard"
+	case MsgShowDispatchCard:			//显示发出去的牌
+		return "MsgShowDispatchCard"
 	case MsgDropCard:
 		return "MsgDropCard"
 	case MsgChiCard:
@@ -52,8 +54,6 @@ func (msgType MsgType) String() string {
 		return "MsgGameEnd"
 	case MsgRoomClosed:
 		return "MsgRoomClosed"
-	case MsgShowDispatchCard:			//显示发出去的牌
-		return "MsgShowDispatchCard"
 	}
 	return "unknow MsgType"
 }
