@@ -192,27 +192,59 @@ func (room *Room) startPlayGame() {
 		player.OnGetInitCards()
 	}
 
-	//todo
 	//检查天胡
-	//计算所有玩家的提扫
+	tmpPlayer := room.curOperator
+	for {
+		hu :=  tmpPlayer.IsTianHu()
+		if hu {
+			room.lastHuPlayer = tmpPlayer
+			room.dealPlayerOperate(room.makeHuCardOperate(tmpPlayer, tmpPlayer))
+			return
+		}
 
+		tmpPlayer = room.nextPlayer(tmpPlayer)
+		if tmpPlayer == room.curOperator{
+			break
+		}
+	}
+
+	//计算所有玩家的提扫
 	for _, player := range room.players {
-		//todo notify to other
 		player.ComputeTiLong()
 		player.ComputeSao()
 
 		player.OnGetInitCards()
 	}
 
+	//再计算一遍是否有人胡了
+	tmpPlayer = room.curOperator
+	for {
+		if tmpPlayer.GetPaoAndTiLongNum() >= 2 {//起手提龙大于2，算胡
+			room.lastHuPlayer = tmpPlayer
+			room.dealPlayerOperate(room.makeHuCardOperate(tmpPlayer, tmpPlayer))
+			return
+		}
+		hu :=  tmpPlayer.IsHu()
+		if hu {
+			room.lastHuPlayer = tmpPlayer
+			room.dealPlayerOperate(room.makeHuCardOperate(tmpPlayer, tmpPlayer))
+			return
+		}
+
+		tmpPlayer = room.nextPlayer(tmpPlayer)
+		if tmpPlayer == room.curOperator{
+			break
+		}
+	}
+
 	room.switchStatus(RoomStatusPlayGame)
 
-	room.waitPlayerDrop(room.masterPlayer)
+	room.waitPlayerDrop(room.curOperator)
 }
 
 func (room *Room) playGame() {
 	// 发牌给玩家
 	card := room.dispatchCard()
-	room.lastDropCardOperator = nil
 
 	log.Debug(room, "Room.playGame put card[ ", card, "]to", room.curOperator)
 	if card == nil {//没有牌了，该局结束，流局
@@ -438,6 +470,7 @@ func (room *Room) dealPlayerOperate(op *Operate) bool{
 		if data, ok := op.Data.(*OperateDropCardData); ok {
 			if op.Operator.Drop(data.Card) { //出牌
 				room.lastDropCard = data.Card
+				room.lastDropCardOperator = op.Operator
 				log.Debug(room, "Room.dealPlayerOperate Drop card :", data.Card)
 				op.ResultCh <- true
 				room.broadcastPlayerSuccessOperated(op)
@@ -554,8 +587,8 @@ func (room *Room) testDropCard(card *card.Card)  {
 		idx := tmpPlayer.idxOfRoom
 		results[idx] =  tmpPlayer.TestCard(card, room.lastDropCardOperator)
 		if results[idx].CanHu {
-			room.lastHuPlayer = room.curOperator
-			room.dealPlayerOperate(room.makeHuCardOperate())
+			room.lastHuPlayer = tmpPlayer
+			room.dealPlayerOperate(room.makeHuCardOperate(tmpPlayer, room.lastDropCardOperator))
 			return
 		}
 
@@ -625,8 +658,8 @@ func (room *Room) testDispatchCard(card *card.Card)  {
 		idx := tmpPlayer.idxOfRoom
 		results[idx] =  tmpPlayer.TestCard(card, room.lastDropCardOperator)
 		if results[idx].CanHu {
-			room.lastHuPlayer = room.curOperator
-			room.dealPlayerOperate(room.makeHuCardOperate())
+			room.lastHuPlayer = tmpPlayer
+			room.dealPlayerOperate(room.makeHuCardOperate(tmpPlayer, room.lastDropCardOperator))
 			return
 		}
 
@@ -684,12 +717,12 @@ func (room *Room) makeDropCardOperate(operator *Player, card *card.Card) *Operat
 	return NewOperateDropCard(operator, data)
 }
 
-func (room *Room) makeHuCardOperate() *Operate{
+func (room *Room) makeHuCardOperate(huPlayer, fromPlayer *Player) *Operate{
 	return NewOperateHu(
-		room.curOperator,
+		huPlayer,
 		&OperateHuData{
-			HuPlayer: room.curOperator,
-			FromPlayer: room.lastDropCardOperator,
+			HuPlayer: huPlayer,
+			FromPlayer: fromPlayer,
 			Desc: "",
 		},
 	)
@@ -729,22 +762,26 @@ func (room *Room) String() string {
 func (room *Room) clearChannel() {
 	for idx := 0 ; idx < room.config.NeedPlayerNum; idx ++ {
 		select {
-		case <-room.chiCardCh[idx]:
+		case op := <-room.chiCardCh[idx]:
+			op.ResultCh <- false
 		default:
 		}
 
 		select {
-		case <-room.pengCardCh[idx]:
+		case op := <-room.pengCardCh[idx]:
+			op.ResultCh <- false
 		default:
 		}
 
 		select {
-		case <-room.paoCardCh[idx]:
+		case op := <-room.paoCardCh[idx]:
+			op.ResultCh <- false
 		default:
 		}
 
 		select {
-		case <-room.guoCh[idx]:
+		case op := <-room.guoCh[idx]:
+			op.ResultCh <- true
 		default:
 		}
 	}
