@@ -258,8 +258,8 @@ func (playingCards *PlayingCards) IsCardsOk(cards ...*Card) bool {
 		return Is3CardsOk(cards...)
 	}
 
-	for i:=0; i<length; i++ {
-		for j:=i+1; j<length; j++{
+	for i:=0; i<length-2; i++ {
+		for j:=i+1; j<length-1; j++{
 			for k:=j+1; k<length; k++ {
 				//log.Debug("IsCardsOk Is3CardsOk :[", i, j, k, "]" , cards[i], cards[j], cards[k])
 				if !Is3CardsOk(cards[i], cards[j], cards[k]) {
@@ -289,7 +289,7 @@ func (playingCards *PlayingCards) Is7Dui(cards ...*Card) bool {
 		return Is2CardsOk(cards[0], cards[1])
 	}
 
-	for i:=0; i<length; i++ {
+	for i:=0; i<length-1; i++ {
 		for j:=i+1; j<length; j++{
 			if !Is2CardsOk(cards[i], cards[j]) {
 				continue
