@@ -287,19 +287,7 @@ func TestNewPlayingCardsIsOk(t *testing.T) {
 	playingCards := NewPlayingCards()
 	playingCards.AddCards(hu15)
 
-	/*
-	hu1 := playingCards.IsCardsOk(hu15.data...)
-	hu2 := playingCards.IsCardsOk(hu15.data...)
-	hu3 := playingCards.IsCardsOk(hu15.data...)
-	hu4 := playingCards.IsCardsOk(hu15.data...)
-	*/
 	hu1 := playingCards.IsHu()
-	hu2 := playingCards.IsHu()
-	hu3 := playingCards.IsHu()
-	hu4 := playingCards.IsHu()
 	assert.Equal(t, hu1, true)
-	assert.Equal(t, hu2, true)
-	assert.Equal(t, hu3, true)
-	assert.Equal(t, hu4, true)
 	t.Log(time.Now().Sub(start))
 }

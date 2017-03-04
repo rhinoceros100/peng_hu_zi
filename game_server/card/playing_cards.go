@@ -11,8 +11,6 @@ type PlayingCards struct {
 	AlreadySaoCards			*Cards		//已经扫的牌，只存已扫牌的其中一张
 	AlreadyPaoCards			*Cards		//已经跑的牌，只存已跑牌的其中一张
 	AlreadyTiLongCards         *Cards      //已经提龙的拍，只存已提龙牌的其中一张
-
-	otherForCheckHu []*Card
 }
 
 func NewPlayingCards() *PlayingCards {
@@ -23,7 +21,6 @@ func NewPlayingCards() *PlayingCards {
 		AlreadySaoCards: NewCards(),
 		AlreadyPaoCards: NewCards(),
 		AlreadyTiLongCards: NewCards(),
-		otherForCheckHu: make([]*Card, 0),
 	}
 }
 
@@ -256,23 +253,23 @@ func (playingCards *PlayingCards) IsCardsOk(cards ...*Card) bool {
 		return Is3CardsOk(cards...)
 	}
 
-	for i:=0; i<length; i++ {
-		for j:=i+1; j<length; j++{
+	for i:=0; i<length - 2; i++ {
+		for j:=i+1; j<length - 1; j++{
 			for k:=j+1; k<length; k++ {
 				//log.Debug("IsCardsOk Is3CardsOk :[", i, j, k, "]" , cards[i], cards[j], cards[k])
 				if !Is3CardsOk(cards[i], cards[j], cards[k]) {
 					continue
 				}
 
-				playingCards.otherForCheckHu = playingCards.otherForCheckHu[0:0]
+				otherForCheckHu := make([]*Card, 0)
 				for l:=0; l<length; l++ {
 					if l == i || l == j || l == k {
 						continue
 					}
-					playingCards.otherForCheckHu = append(playingCards.otherForCheckHu, cards[l])
+					otherForCheckHu = append(otherForCheckHu, cards[l])
 				}
-				//log.Debug("IsCardsOk otherForCheckHu :", playingCards.otherForCheckHu)
-				if playingCards.IsCardsOk(playingCards.otherForCheckHu...) {
+				//log.Debug("IsCardsOk otherForCheckHu :", otherForCheckHu)
+				if playingCards.IsCardsOk(otherForCheckHu...) {
 					return true
 				}
 			}
