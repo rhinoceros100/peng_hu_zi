@@ -292,15 +292,15 @@ func (playingCards *PlayingCards) Is7Dui(cards ...*Card) bool {
 				continue
 			}
 
-			playingCards.otherForCheckHu = playingCards.otherForCheckHu[0:0]
+			otherForCheckHu := make([]*Card, 0)
 			for l:=0; l<length; l++ {
 				if l == i || l == j {
 					continue
 				}
-				playingCards.otherForCheckHu = append(playingCards.otherForCheckHu, cards[l])
+				otherForCheckHu = append(otherForCheckHu, cards[l])
 			}
 			//log.Debug("IsCardsOk otherForCheckHu :", playingCards.otherForCheckHu)
-			if playingCards.Is7Dui(playingCards.otherForCheckHu...) {
+			if playingCards.Is7Dui(otherForCheckHu...) {
 				return true
 			}
 		}
